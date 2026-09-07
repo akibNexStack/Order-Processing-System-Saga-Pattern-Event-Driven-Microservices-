@@ -253,6 +253,8 @@ Add the recovery worker, structured logging, and a simple status endpoint/dashbo
 
 ## 10. Local Development Setup
 
+Part 1 is implemented in the `@saga/shared` workspace: validated order/command/result contracts, idempotency helpers, and local provider simulations. See [contracts and business rules](docs/PART_1_CONTRACTS.md). Run `npm run check` for type checking, builds, and contract/provider tests. Business endpoints and persistent saga processing remain future work.
+
 Run commands from the repository root (Node.js, npm, Docker, and Docker Compose required):
 
 ```bash

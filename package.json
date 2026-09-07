@@ -4,14 +4,18 @@
   "private": true,
   "type": "module",
   "workspaces": [
+    "shared",
     "services/*"
   ],
   "scripts": {
     "dev": "concurrently -k -n payment,inventory,shipping,orders \"npm run dev -w payment-service\" \"npm run dev -w inventory-service\" \"npm run dev -w shipping-service\" \"npm run dev -w order-orchestrator\"",
     "build": "npm run build --workspaces",
-    "typecheck": "npm run typecheck --workspaces",
+    "typecheck": "npm run build --workspace @saga/shared && npm run typecheck --workspaces",
     "infra:up": "docker compose up -d",
-    "infra:down": "docker compose down"
+    "infra:down": "docker compose down",
+    "test": "npm run build && node --test --test-isolation=none --test-reporter=spec shared/test/*.test.mjs",
+    "check": "npm run typecheck && npm test",
+    "predev": "npm run build --workspace @saga/shared"
   },
   "devDependencies": {
     "@types/amqplib": "^0.10.8",

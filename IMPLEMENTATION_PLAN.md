@@ -63,6 +63,8 @@ Build this in **10 parts**, completing each part’s goal before moving forward.
 
 ## Part 6 — Implement HTTP orchestration
 
+**Status:** Implemented and verified. See [HTTP checkout, resume, and tests](docs/PART_6_ORCHESTRATION.md). Run `npm run test:orchestrator` or `npm run check:all`. Forward execution and inventory finalization are implemented; automatic compensation remains Part 7.
+
 - Add `POST /orders` and `GET /orders/:id`.
 - Persist the order and saga before starting work.
 - Execute **Payment → Inventory → Shipping**.

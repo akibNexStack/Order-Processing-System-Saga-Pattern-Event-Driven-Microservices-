@@ -235,7 +235,7 @@ Add the recovery worker, structured logging, and a simple status endpoint/dashbo
 
 ## 10. Local Development Setup
 
-Part 1 is implemented in the `@saga/shared` workspace: validated order/command/result contracts, idempotency helpers, and local provider simulations. See [contracts and business rules](docs/PART_1_CONTRACTS.md). Run `npm run check` for type checking, builds, and contract/provider tests. Payment endpoints are implemented in [Part 3](docs/PART_3_PAYMENT.md), and inventory reserve/release/finalize/status endpoints in [Part 4](docs/PART_4_INVENTORY.md). Shipping create/cancel/status endpoints are implemented in [Part 5](docs/PART_5_SHIPPING.md). Persistent saga processing remains future work.
+Part 1 is implemented in the `@saga/shared` workspace: validated order/command/result contracts, idempotency helpers, and local provider simulations. See [contracts and business rules](docs/PART_1_CONTRACTS.md). Run `npm run check` for type checking, builds, and contract/provider tests. Payment endpoints are implemented in [Part 3](docs/PART_3_PAYMENT.md), and inventory reserve/release/finalize/status endpoints in [Part 4](docs/PART_4_INVENTORY.md). Shipping create/cancel/status endpoints are implemented in [Part 5](docs/PART_5_SHIPPING.md). Persisted HTTP orchestration is implemented in [Part 6](docs/PART_6_ORCHESTRATION.md); automatic compensation remains Part 7.
 
 Run commands from the repository root (Node.js, npm, Docker, and Docker Compose required):
 
@@ -262,8 +262,9 @@ npm run dev
 
 The orchestrator listens on port **3000**, payment on **3001**, inventory on **3002**,
 and shipping on **3003**. Each currently exposes `GET /health` as a liveness check;
-it does not check database or broker connectivity. Payment, inventory, and shipping operations are implemented. Saga orchestration
-remains to be implemented. See [Payment examples](docs/PART_3_PAYMENT.md),
+it does not check database or broker connectivity. Payment, inventory, shipping, and forward HTTP orchestration are implemented.
+See [Order checkout and resume](docs/PART_6_ORCHESTRATION.md),
+[Payment examples](docs/PART_3_PAYMENT.md),
 [Inventory examples](docs/PART_4_INVENTORY.md), and [Shipping examples](docs/PART_5_SHIPPING.md).
 
 RabbitMQ management is available at `http://localhost:15672` with local development

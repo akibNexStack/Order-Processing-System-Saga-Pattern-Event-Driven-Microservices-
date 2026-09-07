@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { IdSchema, OperationSchema, type Command, type Operation } from './contracts.js';
+import { IdSchema, OperationSchema, type Command, type Operation, type OrderPayload } from './contracts.js';
 
 export function commandKey(sagaId: string, operation: Operation): string {
   return `saga:${IdSchema.parse(sagaId).toLowerCase()}:${OperationSchema.parse(operation)}`;
@@ -19,4 +19,9 @@ function canonical(value: unknown): string {
 export function commandFingerprint(command: Command): string {
   const { idempotencyKey: _, ...content } = command;
   return createHash('sha256').update(canonical(content)).digest('hex');
+}
+
+// Caller supplies a validated, normalized order payload.
+export function orderFingerprint(payload: OrderPayload): string {
+  return createHash('sha256').update(canonical(payload)).digest('hex');
 }

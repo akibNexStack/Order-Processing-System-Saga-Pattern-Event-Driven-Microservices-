@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { pgTable, uuid, varchar, text, bigint, integer, jsonb, timestamp, check, index, unique, primaryKey, foreignKey } from 'drizzle-orm/pg-core';
+import { pgTable, boolean, uuid, varchar, text, bigint, integer, jsonb, timestamp, check, index, unique, primaryKey, foreignKey } from 'drizzle-orm/pg-core';
 
 const createdAt = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow();
 const updatedAt = () => timestamp('updated_at', { withTimezone: true }).notNull().defaultNow();
@@ -36,6 +36,9 @@ export const orderItems = pgTable('order_items', {
 export const sagaInstances = pgTable('saga_instances', {
   id: uuid('id').primaryKey().defaultRandom(),
   orderId: uuid('order_id').notNull().unique().references(() => orders.id),
+  currentOperation: varchar('current_operation', { length: 50 }).notNull().default('CHARGE_PAYMENT'),
+  inventoryFinalized: boolean('inventory_finalized').notNull().default(false),
+  lastResult: jsonb('last_result'),
   currentStep: varchar('current_step', { length: 20 }).$type<SagaStep>().notNull().default('PAYMENT'),
   status: varchar('status', { length: 20 }).$type<SagaStatus>().notNull().default('IN_PROGRESS'),
   completedSteps: jsonb('completed_steps').$type<SagaStep[]>().notNull().default(sql`'[]'::jsonb`),
@@ -49,6 +52,7 @@ export const sagaInstances = pgTable('saga_instances', {
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 }, (t) => [
+  check('saga_operation_valid', sql`${t.currentOperation} IN ('CHARGE_PAYMENT', 'RESERVE_INVENTORY', 'CREATE_SHIPMENT', 'FINALIZE_INVENTORY')`),
   check('saga_status_valid', sql`${t.status} IN ('IN_PROGRESS', 'COMPENSATING', 'COMPLETED', 'FAILED')`),
   check('saga_step_valid', sql`${t.currentStep} IN ('PAYMENT', 'INVENTORY', 'SHIPPING')`),
   check('saga_completed_valid', sql`jsonb_typeof(${t.completedSteps}) = 'array' AND ${t.completedSteps} <@ '["PAYMENT","INVENTORY","SHIPPING"]'::jsonb`),

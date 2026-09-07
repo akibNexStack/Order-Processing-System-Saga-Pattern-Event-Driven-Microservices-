@@ -1,5 +1,7 @@
 # Implementation Plan
 
+**Progress:** All 10 parts are implemented and verified for the local simulated-provider system.
+
 Build this in **10 parts**, completing each part’s goal before moving forward.
 
 ## Part 1 — Define contracts and business rules
@@ -114,6 +116,8 @@ Build this in **10 parts**, completing each part’s goal before moving forward.
 **Goal:** Restarting a service or the orchestrator resumes unfinished work without duplicate business effects.
 
 ## Part 10 — Validate and document
+
+**Status:** Implemented and verified. See [system validation and runbook](docs/PART_10_VALIDATION.md). Run `npm run test:system` or `npm run check:all`.
 
 - Test successful orders and failure at every step.
 - Test concurrent duplicate requests and stock contention.

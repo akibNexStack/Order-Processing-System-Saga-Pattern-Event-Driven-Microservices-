@@ -1,0 +1,21 @@
+{
+  "idempotencyKey": "demo:inventory-failure:1",
+  "payload": {
+    "customerId": "33333333-3333-4333-8333-333333333333",
+    "items": [
+      {
+        "productId": "66666666-6666-4666-8666-666666666666",
+        "quantity": 1
+      }
+    ],
+    "amountMinor": 12500,
+    "currency": "BDT",
+    "shippingAddress": {
+      "recipient": "Test Customer",
+      "line1": "10 Test Road",
+      "city": "Dhaka",
+      "postalCode": "1207",
+      "countryCode": "BD"
+    }
+  }
+}

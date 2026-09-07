@@ -119,9 +119,9 @@ legacy pending work, readiness, history, and log fields. Earlier messaging tests
 verify pending outbox publication after reconnect and commit/acknowledgement failures.
 
 These are local development services with simulated external providers and internal
-APIs. The worker supports restart recovery through persisted state, but a complete
-OS-process-kill fault matrix, broker-cluster failures, and broader operational validation
-remain Part 10. Outbox/inbox retention and external log/metrics aggregation are not
+APIs. The worker supports restart recovery through persisted state. [Part 10](PART_10_VALIDATION.md)
+adds targeted OS-process-kill tests and isolated broker restart tests. Multi-node
+broker failover and production deployment validation remain outside this local demo. Outbox/inbox retention and external log/metrics aggregation are not
 implemented by this part.
 
 Verification on 2026-09-07: `npm run check:all` passed all builds, type checks,

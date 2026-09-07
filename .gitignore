@@ -1,0 +1,31 @@
+# Dependencies (root and all workspaces)
+node_modules/
+
+# Build output and TypeScript incremental caches
+dist/
+*.tsbuildinfo
+
+# Local environment values; keep templates in Git
+.env
+.env.*
+!.env.example
+
+# Logs and diagnostic reports
+*.log
+logs/
+report.*.json
+
+# Test coverage and tool caches
+coverage/
+.nyc_output/
+.cache/
+.npm/
+
+# Local editor and operating-system files
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Keep package-lock.json, Drizzle migrations, and .env.example files tracked.

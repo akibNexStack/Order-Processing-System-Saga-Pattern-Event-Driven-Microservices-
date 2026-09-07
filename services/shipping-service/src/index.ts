@@ -1,4 +1,4 @@
-import { RabbitWorker, participantHandler } from '@saga/shared/messaging';
+import { RabbitWorker, participantHandler, readiness, structuredLogger } from '@saga/shared/messaging';
 import type { CommandFor } from '@saga/shared';
 import 'dotenv/config';
 import { serve } from '@hono/node-server';
@@ -8,6 +8,7 @@ import { createDatabase } from './db/client.js';
 import { ShippingService } from './shipments/service.js';
 import { LocalShippingProvider } from './providers/local-provider.js';
 
+const log = structuredLogger('shipping-service');
 const port = z.coerce.number().int().min(1).max(65535).parse(process.env.PORT ?? 3003);
 const databaseUrl = z.string().min(1).parse(process.env.DATABASE_URL);
 const mode = z.enum(['success', 'reject', 'timeout-after-success']).parse(process.env.SHIPPING_SIMULATION_MODE ?? 'success');
@@ -16,15 +17,16 @@ const timeout = z.coerce.number().int().min(1).max(60000).parse(process.env.SHIP
 const { pool } = createDatabase(databaseUrl);
 const { pool: providerPool } = createDatabase(databaseUrl);
 const service = new ShippingService(pool, new LocalShippingProvider(providerPool, mode), timeout);
-const app = createApp(service);
+const app = createApp(service, () => readiness(pool, messaging)());
 const server = serve({ fetch: app.fetch, port }, (info) => {
-  console.log(`shipping-service listening on port ${info.port} (local simulated provider: ${mode})`);
+  log({ event: 'http_started' });
 });
 const messaging = new RabbitWorker(pool, 'shipping', participantHandler(pool, 'shipping',
   (command, commit) => service.execute(command as CommandFor<'CREATE_SHIPMENT' | 'CANCEL_SHIPMENT'>, commit)), {
   url: process.env.RABBITMQ_URL ?? 'amqp://saga:saga@localhost:5672',
   prefix: process.env.RABBITMQ_PREFIX ?? 'saga.v1',
-  onError: () => console.error('shipping messaging temporarily unavailable or message rejected; pending work retained'),
+  log,
+  onError: () => log({ event: 'messaging_error' }),
 });
 messaging.start();
 let stopping = false;
@@ -36,6 +38,6 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   });
 }
 server.on('error', (error: NodeJS.ErrnoException) => {
-  console.error(`shipping-service could not start: ${error.code ?? 'server error'}`);
+  log({ event: 'http_start_failed', reason: error.code ?? 'SERVER_ERROR' });
   void messaging.stop().then(() => Promise.all([pool.end(), providerPool.end()])).finally(() => { process.exitCode = 1; });
 });

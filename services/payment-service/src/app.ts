@@ -1,10 +1,17 @@
+import type { Readiness } from '@saga/shared/messaging';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { ChargePaymentCommandSchema, RefundPaymentCommandSchema, IdSchema } from '@saga/shared';
 import type { PaymentService } from './payments/service.js';
 
-export function createApp(service: PaymentService) {
+export function createApp(service: PaymentService, ready?: Readiness) {
   const app = new Hono();
+  app.get('/ready', async c => {
+    let checks;
+    try { checks = await ready?.(); } catch {}
+    const healthy = !!checks && Object.values(checks).every(Boolean);
+    return c.json({ status: healthy ? 'ready' : 'not_ready', checks: checks ?? { configured: false } }, healthy ? 200 : 503);
+  });
   app.get('/health', (c) => c.json({ service: 'payment-service', status: 'ok' }));
   app.use('/payments/*', bodyLimit({ maxSize: 32 * 1024, onError: (c) => c.json({ error: 'Request body exceeds 32 KiB' }, 413) }));
   for (const operation of ['charge', 'refund'] as const) {

@@ -36,6 +36,9 @@ export const orderItems = pgTable('order_items', {
 export const sagaInstances = pgTable('saga_instances', {
   id: uuid('id').primaryKey().defaultRandom(),
   orderId: uuid('order_id').notNull().unique().references(() => orders.id),
+  responseDeadlineAt: timestamp('response_deadline_at', { withTimezone: true }),
+  recoveryAttempts: integer('recovery_attempts').notNull().default(0),
+  interventionReason: text('intervention_reason'),
   pendingMessageId: uuid('pending_message_id'),
   brokerAttempts: integer('broker_attempts').notNull().default(0),
   currentOperation: varchar('current_operation', { length: 50 }).notNull().default('CHARGE_PAYMENT'),
@@ -54,6 +57,7 @@ export const sagaInstances = pgTable('saga_instances', {
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 }, (t) => [
+  check('saga_recovery_attempts_valid', sql`${t.recoveryAttempts} >= 0`),
   check('saga_operation_valid', sql`${t.currentOperation} IN ('CHARGE_PAYMENT', 'RESERVE_INVENTORY', 'CREATE_SHIPMENT', 'FINALIZE_INVENTORY')`),
   check('saga_status_valid', sql`${t.status} IN ('IN_PROGRESS', 'COMPENSATING', 'COMPLETED', 'FAILED')`),
   check('saga_step_valid', sql`${t.currentStep} IN ('PAYMENT', 'INVENTORY', 'SHIPPING')`),

@@ -104,13 +104,13 @@ There are two bounded retry mechanisms:
    `brokerAttempts` is 3. POST `/orders/:orderId/resume` starts another bounded cycle.
 
 Service unavailability retains pending commands rather than pretending they failed.
-A command quarantined after handler errors needs investigation and deliberate redrive
-from its dead-letter queue; it does not automatically turn the order into FAILED.
+A command quarantined after handler errors remains unfinished. Part 9 can reconcile
+a missing response within its bounded budget; persistent failures require intervention.
 The same message and business IDs must be retained when redriving. Do not purge queues
 or delete deduplication records to retry an order.
 
-Part 9 still covers stale-saga scans, missing-result deadlines, richer readiness and
-observability, and operational recovery. Outbox reconnection is implemented here
+[Part 9](PART_9_RECOVERY.md) now implements stale-saga scans, missing-result deadlines,
+readiness, history, and intervention handling. Outbox reconnection is implemented here
 because durable messaging needs it; it is not a complete recovery worker. Outbox and
 inbox retention/archival are not yet implemented. Payment and shipping remain durable
 local provider simulations.

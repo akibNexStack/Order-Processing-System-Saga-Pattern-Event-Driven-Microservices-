@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, desc } from 'drizzle-orm';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type pg from 'pg';
 import { CreateOrderRequestSchema, orderFingerprint, ResultSchema, type Command, type CreateOrderRequest, type Result, type SagaStatus } from '@saga/shared';
@@ -141,6 +141,12 @@ export class OrderService {
     });
   }
 
+  async attention() {
+    return drizzle(this.pool).select({ orderId: sagaInstances.orderId, sagaId: sagaInstances.id, status: sagaInstances.status,
+      operation: sagaInstances.currentOperation, reason: sagaInstances.interventionReason, updatedAt: sagaInstances.updatedAt })
+      .from(sagaInstances).where(isNotNull(sagaInstances.interventionReason)).orderBy(desc(sagaInstances.updatedAt)).limit(100);
+  }
+
   async status(orderId: string) {
     return drizzle(this.pool).transaction(async tx => {
       const [row] = await tx.select({ order: orders, saga: sagaInstances }).from(orders)
@@ -148,7 +154,7 @@ export class OrderService {
       if (!row) return null;
       const items = await tx.select().from(orderItems).where(eq(orderItems.orderId, orderId)).orderBy(asc(orderItems.productId));
       const transitions = await tx.select().from(sagaTransitions).where(eq(sagaTransitions.sagaId, row.saga.id)).orderBy(asc(sagaTransitions.sequence));
-      return { ...row, items, transitions, requiresCompensation: row.saga.status === 'COMPENSATING' };
+      return { ...row, items, transitions, requiresCompensation: row.saga.status === 'COMPENSATING', requiresManualIntervention: !!row.saga.interventionReason };
     }, { isolationLevel: 'repeatable read', accessMode: 'read only' });
   }
 }

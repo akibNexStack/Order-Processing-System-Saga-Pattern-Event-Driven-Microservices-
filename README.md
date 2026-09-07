@@ -8,7 +8,7 @@ Built with **Hono**, **TypeScript**, **PostgreSQL**, and **RabbitMQ**.
 
 Current runtime: **Part 8 uses RabbitMQ commands/results with transactional outboxes**.
 Order POST returns asynchronous progress; poll the status endpoint for completion.
-See [Part 8 startup, retries, and verification](docs/PART_8_MESSAGING.md).
+See [Part 8 startup and messaging](docs/PART_8_MESSAGING.md) and [Part 9 automatic recovery, readiness, and history](docs/PART_9_RECOVERY.md).
 
 ## Table of Contents
 

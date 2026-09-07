@@ -1,10 +1,17 @@
+import type { Readiness } from '@saga/shared/messaging';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { ReserveInventoryCommandSchema, ReleaseInventoryCommandSchema, FinalizeInventoryCommandSchema, IdSchema } from '@saga/shared';
 import type { InventoryService } from './inventory/service.js';
 
-export function createApp(service: InventoryService) {
+export function createApp(service: InventoryService, ready?: Readiness) {
   const app = new Hono();
+  app.get('/ready', async c => {
+    let checks;
+    try { checks = await ready?.(); } catch {}
+    const healthy = !!checks && Object.values(checks).every(Boolean);
+    return c.json({ status: healthy ? 'ready' : 'not_ready', checks: checks ?? { configured: false } }, healthy ? 200 : 503);
+  });
   app.get('/health', c => c.json({ service: 'inventory-service', status: 'ok' }));
   app.use('/inventory/*', bodyLimit({ maxSize: 32 * 1024, onError: c => c.json({ error: 'Request body exceeds 32 KiB' }, 413) }));
   for (const [path, schema] of [['reserve', ReserveInventoryCommandSchema], ['release', ReleaseInventoryCommandSchema], ['finalize', FinalizeInventoryCommandSchema]] as const) {

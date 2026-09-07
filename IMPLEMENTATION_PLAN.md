@@ -76,7 +76,7 @@ Build this in **10 parts**, completing each part’s goal before moving forward.
 
 ## Part 7 — Implement compensation
 
-**Status:** Implemented and verified. See [compensation behavior and requirement checks](docs/PART_7_COMPENSATION.md). Run `npm run test:orchestrator` or `npm run check:all`. Cleanup starts automatically on confirmed business rejection; retries use the existing POST/resume endpoints. Background recovery remains Part 9.
+**Status:** Implemented and verified. See [compensation behavior and requirement checks](docs/PART_7_COMPENSATION.md). Run `npm run test:orchestrator` or `npm run check:all`. Cleanup starts automatically on confirmed business rejection; retries use the existing POST/resume endpoints. Background recovery is implemented in Part 9.
 
 - Record compensation progress separately from forward progress.
 - Compensate completed steps in reverse order.
@@ -101,6 +101,8 @@ Build this in **10 parts**, completing each part’s goal before moving forward.
 **Goal:** The complete saga runs through RabbitMQ without losing work between database commits and message publishing.
 
 ## Part 9 — Add recovery and observability
+
+**Status:** Implemented and verified. See [recovery, readiness, history, and intervention](docs/PART_9_RECOVERY.md). Run `npm run test:recovery` or `npm run check:all`.
 
 - Recover stale `IN_PROGRESS` and `COMPENSATING` sagas.
 - Use persisted deadlines, retry counts, and worker leases.

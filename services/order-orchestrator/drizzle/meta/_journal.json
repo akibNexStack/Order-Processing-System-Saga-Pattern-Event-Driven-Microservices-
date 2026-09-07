@@ -22,6 +22,13 @@
       "when": 1788776551666,
       "tag": "0002_charming_shinko_yamashiro",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788777586141,
+      "tag": "0003_military_guardsmen",
+      "breakpoints": true
     }
   ]
 }

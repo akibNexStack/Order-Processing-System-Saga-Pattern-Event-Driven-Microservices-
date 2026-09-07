@@ -3,6 +3,7 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { and, eq, isNull, lte, asc } from 'drizzle-orm';
 import type pg from 'pg';
 import { EnvelopeSchema, InvalidMessage, type Consumer, type Envelope } from './contracts.js';
+import type { LogSink } from './observability.js';
 import { messageOutbox } from './schema.js';
 
 export const consumers: Consumer[] = ['payment', 'inventory', 'shipping', 'orders'];
@@ -43,8 +44,9 @@ export function confirmed(channel: ConfirmChannel, exchange: string, route: stri
   });
 }
 
-export async function relayOnce(pool: pg.Pool, channel: ConfirmChannel, prefix: string): Promise<boolean> {
-  return drizzle(pool).transaction(async tx => {
+export async function relayOnce(pool: pg.Pool, channel: ConfirmChannel, prefix: string, log: LogSink = () => {}): Promise<boolean> {
+  let published: typeof messageOutbox.$inferSelect | undefined;
+  const changed = await drizzle(pool).transaction(async tx => {
     const [row] = await tx.select().from(messageOutbox).where(and(isNull(messageOutbox.publishedAt), lte(messageOutbox.availableAt, new Date())))
       .orderBy(asc(messageOutbox.availableAt)).limit(1).for('update', { skipLocked: true });
     if (!row) return false;
@@ -52,11 +54,14 @@ export async function relayOnce(pool: pg.Pool, channel: ConfirmChannel, prefix: 
     await confirmed(channel, dead ? `${prefix}.dead` : prefix, dead ? row.route.slice(5) : row.route,
       Buffer.from(JSON.stringify(row.envelope)), { messageId: row.id, contentType: 'application/json' });
     await tx.update(messageOutbox).set({ publishedAt: new Date() }).where(eq(messageOutbox.id, row.id));
+    published = row;
     return true;
   });
+  if (published) log({ event: 'message_published', messageId: published.id, orderId: published.envelope.body.orderId, sagaId: published.envelope.body.sagaId, operation: published.envelope.body.operation, route: published.route });
+  return changed;
 }
 
-export interface RabbitOptions { url: string; prefix?: string; intervalMs?: number; onError?: (error: unknown) => void }
+export interface RabbitOptions { url: string; prefix?: string; intervalMs?: number; onError?: (error: unknown) => void; log?: LogSink }
 export class RabbitWorker {
   private connection?: ChannelModel;
   private publisher?: ConfirmChannel;
@@ -66,12 +71,15 @@ export class RabbitWorker {
   private stopped = true;
   private consumerChannel?: Channel;
   private tag?: string;
+  private blocked = false;
+  private subscribed = false;
   readonly prefix: string;
   constructor(private readonly pool: pg.Pool, private readonly consumer: Consumer,
     private readonly handler: (message: Envelope) => Promise<void>, private readonly options: RabbitOptions) {
     this.prefix = options.prefix ?? 'saga.v1';
     if (!/^[A-Za-z0-9._-]{1,100}$/.test(this.prefix)) throw new Error('Invalid RabbitMQ prefix');
   }
+  isReady() { return !this.stopped && !!this.connection && !!this.publisher && this.subscribed && !this.blocked; }
   start() {
     if (!this.stopped) return;
     this.stopped = false;
@@ -84,8 +92,10 @@ export class RabbitWorker {
   }
   private async connect() {
     const connection = await amqp.connect(this.options.url, { timeout: 5000 });
+    connection.on('blocked', () => { this.blocked = true; this.options.log?.({ event: 'broker_blocked' }); });
+    connection.on('unblocked', () => { this.blocked = false; });
     connection.on('error', error => this.options.onError?.(error));
-    connection.on('close', () => { if (this.connection === connection) { this.connection = undefined; this.publisher = undefined; } });
+    connection.on('close', () => { if (this.connection === connection) { this.connection = undefined; this.publisher = undefined; this.subscribed = false; this.options.log?.({ event: 'broker_disconnected' }); } });
     try {
       const publisher = await connection.createConfirmChannel();
       const channel = await connection.createChannel();
@@ -98,23 +108,28 @@ export class RabbitWorker {
       await channel.prefetch(1);
       this.connection = connection; this.publisher = publisher; this.consumerChannel = channel;
       const subscription = await channel.consume(`${this.prefix}.${this.consumer}`, message => {
-        if (!message) { void connection.close().catch(() => {}); return; }
+        if (!message) { this.subscribed = false; void connection.close().catch(() => {}); return; }
         this.handling = this.handle(channel, failures, message).catch(error => {
           this.options.onError?.(error); void connection.close().catch(() => {});
         });
       }, { noAck: false });
-      this.tag = subscription.consumerTag;
+      this.tag = subscription.consumerTag; this.subscribed = true; this.blocked = false;
+      this.options.log?.({ event: 'broker_connected' });
     } catch (error) { await connection.close().catch(() => {}); throw error; }
   }
   private async handle(channel: Channel, failures: ConfirmChannel, message: ConsumeMessage) {
     let invalid = false;
+    let context = {};
     try {
       if (message.content.length > 65536 || message.properties.contentType !== 'application/json') throw new InvalidMessage('Invalid message size or content type');
       let envelope: Envelope;
       try { envelope = EnvelopeSchema.parse(JSON.parse(message.content.toString())); }
       catch { throw new InvalidMessage('Invalid message envelope'); }
       if (message.properties.messageId !== envelope.messageId) throw new InvalidMessage('AMQP message ID mismatch');
+      context = { messageId: envelope.messageId, orderId: envelope.body.orderId, sagaId: envelope.body.sagaId, operation: envelope.body.operation };
+      this.options.log?.({ event: 'message_received', ...context });
       await this.handler(envelope);
+      this.options.log?.({ event: 'message_processed', ...context });
       channel.ack(message);
       return;
     } catch (error) {
@@ -128,6 +143,7 @@ export class RabbitWorker {
       dead ? this.consumer : `retry.${this.consumer}`, message.content,
       { messageId: message.properties.messageId, contentType: message.properties.contentType,
         headers: { ...message.properties.headers, 'saga-retries': retries + 1 } });
+    this.options.log?.({ event: dead ? 'message_dead_lettered' : 'message_retry_scheduled', ...context });
     channel.ack(message);
   }
   private async tick() {
@@ -135,7 +151,7 @@ export class RabbitWorker {
     try {
       if (!this.connection) await this.connect();
       for (let n = 0; n < 50 && !this.stopped; n++) {
-        if (!this.publisher || !await relayOnce(this.pool, this.publisher, this.prefix)) break;
+        if (!this.publisher || !await relayOnce(this.pool, this.publisher, this.prefix, this.options.log)) break;
       }
     } catch (error) {
       await this.connection?.close().catch(() => {});
@@ -144,7 +160,7 @@ export class RabbitWorker {
     }
   }
   async stop() {
-    this.stopped = true; clearTimeout(this.timer);
+    this.stopped = true; this.subscribed = false; clearTimeout(this.timer);
     await this.task;
     if (this.tag) await this.consumerChannel?.cancel(this.tag).catch(() => {});
     await this.handling;

@@ -9,7 +9,7 @@ export function forwardOperation(value: string): ForwardOperation {
   if (!FORWARD_OPERATIONS.includes(value as ForwardOperation)) throw new Error('Invalid persisted operation');
   return value as ForwardOperation;
 }
-export function buildCommand(operation: ForwardOperation, orderId: string, sagaId: string, order: OrderPayload): Command {
+export function buildCommand(operation: ForwardOperation | 'REFUND_PAYMENT' | 'RELEASE_INVENTORY' | 'CANCEL_SHIPMENT', orderId: string, sagaId: string, order: OrderPayload): Command {
   const payload = operation === 'CHARGE_PAYMENT' ? { customerId: order.customerId, amountMinor: order.amountMinor, currency: order.currency }
     : operation === 'RESERVE_INVENTORY' ? { items: order.items }
     : operation === 'CREATE_SHIPMENT' ? { items: order.items, shippingAddress: order.shippingAddress } : {};

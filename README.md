@@ -235,7 +235,7 @@ Add the recovery worker, structured logging, and a simple status endpoint/dashbo
 
 ## 10. Local Development Setup
 
-Part 1 is implemented in the `@saga/shared` workspace: validated order/command/result contracts, idempotency helpers, and local provider simulations. See [contracts and business rules](docs/PART_1_CONTRACTS.md). Run `npm run check` for type checking, builds, and contract/provider tests. Payment endpoints are implemented in [Part 3](docs/PART_3_PAYMENT.md), and inventory reserve/release/finalize/status endpoints in [Part 4](docs/PART_4_INVENTORY.md). Shipping create/cancel/status endpoints are implemented in [Part 5](docs/PART_5_SHIPPING.md). Persisted HTTP orchestration is implemented in [Part 6](docs/PART_6_ORCHESTRATION.md); automatic compensation remains Part 7.
+Part 1 is implemented in the `@saga/shared` workspace: validated order/command/result contracts, idempotency helpers, and local provider simulations. See [contracts and business rules](docs/PART_1_CONTRACTS.md). Run `npm run check` for type checking, builds, and contract/provider tests. Payment endpoints are implemented in [Part 3](docs/PART_3_PAYMENT.md), and inventory reserve/release/finalize/status endpoints in [Part 4](docs/PART_4_INVENTORY.md). Shipping create/cancel/status endpoints are implemented in [Part 5](docs/PART_5_SHIPPING.md). Persisted HTTP orchestration is implemented in [Part 6](docs/PART_6_ORCHESTRATION.md); reverse-order compensation is implemented in [Part 7](docs/PART_7_COMPENSATION.md), with request-driven retries.
 
 Run commands from the repository root (Node.js, npm, Docker, and Docker Compose required):
 

@@ -63,7 +63,7 @@ Build this in **10 parts**, completing each part’s goal before moving forward.
 
 ## Part 6 — Implement HTTP orchestration
 
-**Status:** Implemented and verified. See [HTTP checkout, resume, and tests](docs/PART_6_ORCHESTRATION.md). Run `npm run test:orchestrator` or `npm run check:all`. Forward execution and inventory finalization are implemented; automatic compensation remains Part 7.
+**Status:** Implemented and verified. See [HTTP checkout, resume, and tests](docs/PART_6_ORCHESTRATION.md). Run `npm run test:orchestrator` or `npm run check:all`. Forward execution and inventory finalization are implemented; Part 7 adds automatic compensation.
 
 - Add `POST /orders` and `GET /orders/:id`.
 - Persist the order and saga before starting work.
@@ -75,6 +75,8 @@ Build this in **10 parts**, completing each part’s goal before moving forward.
 **Goal:** A successful order reaches `COMPLETED`, with its progress visible in the database and status endpoint.
 
 ## Part 7 — Implement compensation
+
+**Status:** Implemented and verified. See [compensation behavior and requirement checks](docs/PART_7_COMPENSATION.md). Run `npm run test:orchestrator` or `npm run check:all`. Cleanup starts automatically on confirmed business rejection; retries use the existing POST/resume endpoints. Background recovery remains Part 9.
 
 - Record compensation progress separately from forward progress.
 - Compensate completed steps in reverse order.

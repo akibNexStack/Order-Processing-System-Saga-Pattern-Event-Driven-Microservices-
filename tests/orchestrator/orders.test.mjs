@@ -159,23 +159,123 @@ test('HTTP order orchestration with all service databases', async t => {
       assert.equal(await row('INVENTORY', 'reservations', result.body.order.id), undefined);
       assert.equal((await post(app, req)).status, 422);
     });
-    await t.test('inventory failure records required compensation and does not ship', async () => {
-      const result = await post(app, await request(0));
-      assert.equal(result.status, 202); assert.equal(result.body.saga.status, 'COMPENSATING');
-      assert.equal(result.body.requiresCompensation, true);
+    await t.test('inventory failure refunds payment before reporting FAILED', async () => {
+      const req = await request(0); const result = await post(app, req);
+      assert.equal(result.status, 422); assert.equal(result.body.saga.status, 'FAILED');
+      assert.equal(result.body.requiresCompensation, false);
       assert.deepEqual(result.body.saga.completedSteps, ['PAYMENT']);
+      assert.deepEqual(result.body.saga.compensatedSteps, ['PAYMENT']);
       assert.equal(await row('SHIPPING', 'shipments', result.body.order.id), undefined);
-      assert.equal((await row('PAYMENT', 'payments', result.body.order.id)).status, 'CHARGED');
-      const resumed = await app.request(`/orders/${result.body.order.id}/resume`, { method: 'POST' });
-      assert.equal((await resumed.json()).saga.status, 'COMPENSATING');
+      assert.equal((await row('PAYMENT', 'payments', result.body.order.id)).status, 'REFUNDED');
+      assert.equal((await post(app, req)).body.saga.version, result.body.saga.version);
     });
-    await t.test('shipping rejection preserves completed steps for Part 7 compensation', async () => {
-      const rejectUrl = await start(shippingApp(new ShippingService(dbs.SHIPPING.pool, new LocalShippingProvider(dbs.SHIPPING.providerPool, 'reject'))));
-      const failing = createApp(new OrderService(dbs.ORDER.pool, new HttpTransport({ ...urls, shipping: rejectUrl })));
-      const result = await post(failing, await request());
-      assert.equal(result.body.saga.status, 'COMPENSATING');
+    const rejectShippingUrl = await start(shippingApp(new ShippingService(dbs.SHIPPING.pool, new LocalShippingProvider(dbs.SHIPPING.providerPool, 'reject'))));
+    const rejectShipping = new HttpTransport({ ...urls, shipping: rejectShippingUrl });
+    const stock = async req => (await dbs.INVENTORY.pool.query('SELECT available_stock FROM products WHERE id=$1', [req.payload.items[0].productId])).rows[0].available_stock;
+    await t.test('shipping rejection releases stock then refunds, with separate ordered history', async () => {
+      const calls = []; const req = await request();
+      const failing = createApp(new OrderService(dbs.ORDER.pool, { execute: async c => { calls.push(c.operation); return rejectShipping.execute(c); } }));
+      const result = await post(failing, req);
+      assert.equal(result.status, 422); assert.equal(result.body.saga.status, 'FAILED');
+      assert.deepEqual(calls, ['CHARGE_PAYMENT', 'RESERVE_INVENTORY', 'CREATE_SHIPMENT', 'RELEASE_INVENTORY', 'REFUND_PAYMENT']);
       assert.deepEqual(result.body.saga.completedSteps, ['PAYMENT', 'INVENTORY']);
-      assert.equal((await row('INVENTORY', 'reservations', result.body.order.id)).status, 'RESERVED');
+      assert.deepEqual(result.body.saga.compensatedSteps, ['INVENTORY', 'PAYMENT']);
+      assert.equal((await row('INVENTORY', 'reservations', result.body.order.id)).status, 'RELEASED');
+      assert.equal((await row('PAYMENT', 'payments', result.body.order.id)).status, 'REFUNDED');
+      assert.equal(await stock(req), 10);
+      const history = result.body.transitions.filter(x => x.direction === 'COMPENSATION');
+      assert.deepEqual(history.filter(x => x.details.event === 'COMPENSATION_SUCCEEDED').map(x => x.step), ['INVENTORY', 'PAYMENT']);
+      assert.equal(history.at(-1).details.event, 'COMPENSATION_COMPLETED');
+      assert.deepEqual(result.body.transitions.map(x => x.sequence), Array.from({ length: result.body.saga.version }, (_, n) => n + 1));
+    });
+    for (const operation of ['RELEASE_INVENTORY', 'REFUND_PAYMENT']) {
+      for (const failure of ['rejection', 'lost-response', 'mismatched-response', 'exception']) {
+        await t.test(`${operation} ${failure} stays COMPENSATING and restart resumes without duplicate effects`, async () => {
+          const req = await request();
+          const failing = createApp(new OrderService(dbs.ORDER.pool, { execute: async c => {
+            if (c.operation !== operation) return rejectShipping.execute(c);
+            if (failure === 'exception') throw new Error('Injected unavailable service');
+            if (failure === 'rejection') {
+              const { payload: _, ...meta } = c;
+              return { ...meta, outcome: 'FAILED', error: { code: 'INVALID_STATE', message: 'Injected cleanup failure', retryable: false } };
+            }
+            const result = await rejectShipping.execute(c);
+            return failure === 'lost-response' ? uncertain(c) : { ...result, sagaId: randomUUID() };
+          } }));
+          const first = await post(failing, req);
+          assert.equal(first.status, 202); assert.equal(first.body.saga.status, 'COMPENSATING');
+          assert.equal(first.body.requiresCompensation, true);
+          assert.deepEqual(first.body.saga.compensatedSteps, operation === 'REFUND_PAYMENT' ? ['INVENTORY'] : []);
+          if (operation === 'RELEASE_INVENTORY') assert.equal((await row('PAYMENT', 'payments', first.body.order.id)).status, 'CHARGED');
+          const calls = [];
+          const restarted = createApp(new OrderService(dbs.ORDER.pool, { execute: async c => { calls.push(c.operation); return transport.execute(c); } }));
+          const resumed = await restarted.request(`/orders/${first.body.order.id}/resume`, { method: 'POST' });
+          assert.equal(resumed.status, 422);
+          const final = await resumed.json(); assert.equal(final.saga.status, 'FAILED');
+          assert.deepEqual(calls, operation === 'REFUND_PAYMENT' ? ['REFUND_PAYMENT'] : ['RELEASE_INVENTORY', 'REFUND_PAYMENT']);
+          assert.deepEqual(final.saga.compensatedSteps, ['INVENTORY', 'PAYMENT']);
+          assert.equal(await stock(req), 10);
+          assert.equal((await row('PAYMENT', 'payments', first.body.order.id)).status, 'REFUNDED');
+          assert.equal((await dbs.PAYMENT.pool.query("SELECT count(*)::int AS n FROM simulated_provider_requests WHERE result->>'orderId'=$1", [first.body.order.id])).rows[0].n, 2);
+        });
+      }
+    }
+    for (const terminal of [false, true]) {
+      await t.test(`compensation ${terminal ? 'terminal' : 'progress'} history write failure rolls back and replays safely`, async () => {
+        const req = await request();
+        const event = terminal ? 'COMPENSATION_COMPLETED' : 'COMPENSATION_SUCCEEDED';
+        await dbs.ORDER.pool.query(`CREATE FUNCTION reject_cleanup() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.details->>'event'='${event}' THEN RAISE EXCEPTION 'injected'; END IF; RETURN NEW; END $$`);
+        await dbs.ORDER.pool.query('CREATE TRIGGER reject_cleanup BEFORE INSERT ON saga_transitions FOR EACH ROW EXECUTE FUNCTION reject_cleanup()');
+        let first;
+        try { first = await post(createApp(new OrderService(dbs.ORDER.pool, rejectShipping)), req); assert.equal(first.status, 503); }
+        finally { await dbs.ORDER.pool.query('DROP TRIGGER reject_cleanup ON saga_transitions'); await dbs.ORDER.pool.query('DROP FUNCTION reject_cleanup()'); }
+        const before = await (await app.request(first.location)).json();
+        assert.equal(before.saga.status, 'COMPENSATING');
+        assert.deepEqual(before.saga.compensatedSteps, terminal ? ['INVENTORY', 'PAYMENT'] : []);
+        assert.equal(before.transitions.length, before.saga.version);
+        const calls = [];
+        const resumed = await post(createApp(new OrderService(dbs.ORDER.pool, { execute: async c => { calls.push(c.operation); return transport.execute(c); } })), req);
+        assert.equal(resumed.body.saga.status, 'FAILED');
+        assert.deepEqual(calls, terminal ? [] : ['RELEASE_INVENTORY', 'REFUND_PAYMENT']);
+        assert.equal(await stock(req), 10);
+      });
+    }
+    await t.test('concurrent compensation resumes across instances perform cleanup once', async () => {
+      const req = await request();
+      const interrupted = createApp(new OrderService(dbs.ORDER.pool, { execute: c => c.operation === 'RELEASE_INVENTORY' ? Promise.resolve(uncertain(c)) : rejectShipping.execute(c) }));
+      const first = await post(interrupted, req); assert.equal(first.body.saga.status, 'COMPENSATING');
+      const calls = [];
+      const transportWithTrace = { execute: async c => { calls.push(c.operation); return transport.execute(c); } };
+      const apps = [createApp(new OrderService(dbs.ORDER.pool, transportWithTrace)), createApp(new OrderService(dbs.ORDER.pool, transportWithTrace))];
+      const responses = await Promise.all(Array.from({ length: 12 }, (_, n) => post(apps[n % 2], req)));
+      assert.ok(responses.every(r => [202, 422].includes(r.status)));
+      assert.equal((await post(app, req)).body.saga.status, 'FAILED');
+      assert.deepEqual(calls, ['RELEASE_INVENTORY', 'REFUND_PAYMENT']);
+      assert.equal(await stock(req), 10);
+    });
+    await t.test('uncertain inventory success reconciles before a shipping failure is compensated', async () => {
+      const req = await request();
+      const lossy = createApp(new OrderService(dbs.ORDER.pool, { execute: async c => {
+        const result = await rejectShipping.execute(c); return c.operation === 'RESERVE_INVENTORY' ? uncertain(c) : result;
+      } }));
+      const first = await post(lossy, req);
+      assert.equal(first.body.saga.status, 'IN_PROGRESS');
+      assert.deepEqual(first.body.saga.compensatedSteps, []); assert.equal(await stock(req), 8);
+      const final = await post(createApp(new OrderService(dbs.ORDER.pool, rejectShipping)), req);
+      assert.equal(final.body.saga.status, 'FAILED'); assert.equal(await stock(req), 10);
+      assert.deepEqual(final.body.saga.compensatedSteps, ['INVENTORY', 'PAYMENT']);
+    });
+    await t.test('invalid compensation order and finalization boundary are rejected before cleanup', async () => {
+      const req = await request();
+      const interrupted = createApp(new OrderService(dbs.ORDER.pool, { execute: c => c.operation === 'RELEASE_INVENTORY' ? Promise.resolve(uncertain(c)) : rejectShipping.execute(c) }));
+      const first = await post(interrupted, req);
+      await dbs.ORDER.pool.query(`UPDATE saga_instances SET compensated_steps='["PAYMENT"]' WHERE order_id=$1`, [first.body.order.id]);
+      assert.equal((await post(app, req)).status, 503);
+      assert.equal((await row('PAYMENT', 'payments', first.body.order.id)).status, 'CHARGED');
+      await dbs.ORDER.pool.query(`UPDATE saga_instances SET compensated_steps='[]', current_operation='FINALIZE_INVENTORY' WHERE order_id=$1`, [first.body.order.id]);
+      assert.equal((await post(app, req)).status, 503); assert.equal(await stock(req), 8);
+      await dbs.ORDER.pool.query("UPDATE saga_instances SET current_operation='CREATE_SHIPMENT' WHERE order_id=$1", [first.body.order.id]);
+      assert.equal((await post(app, req)).body.saga.status, 'FAILED');
     });
     await t.test('finalization response loss and completion write failure never trigger compensation', async () => {
       const lossy = createApp(new OrderService(dbs.ORDER.pool, { execute: async c => {

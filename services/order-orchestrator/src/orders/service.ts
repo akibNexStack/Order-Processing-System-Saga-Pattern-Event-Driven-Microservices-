@@ -2,9 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { and, asc, eq } from 'drizzle-orm';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type pg from 'pg';
-import { CreateOrderRequestSchema, orderFingerprint, ResultSchema, type CreateOrderRequest, type Result, type SagaStatus } from '@saga/shared';
+import { CreateOrderRequestSchema, orderFingerprint, ResultSchema, type Command, type CreateOrderRequest, type Result, type SagaStatus } from '@saga/shared';
 import { orders, orderItems, sagaInstances, sagaTransitions } from '../db/schema.js';
 import { buildCommand, FORWARD_OPERATIONS, forwardOperation, STEP_FOR_OPERATION } from '../saga/stateMachine.js';
+import { nextCompensation } from '../saga/compensate.js';
 import type { CommandTransport } from '../saga/httpTransport.js';
 
 type Saga = typeof sagaInstances.$inferSelect;
@@ -42,25 +43,20 @@ export class OrderService {
       if (!locked) return;
       const db = drizzle(client);
       let [saga] = await db.select().from(sagaInstances).where(eq(sagaInstances.orderId, orderId));
-      if (!saga || saga.status !== 'IN_PROGRESS') return;
+      if (!saga) return;
+      if (saga.status === 'COMPENSATING') { await this.compensate(db, saga); return; }
+      if (saga.status !== 'IN_PROGRESS') return;
       // A request does at most one attempt per remaining operation. Retry unknown
-      // outcomes explicitly; no fire-and-forget tasks or background loop in Part 6.
+      // outcomes explicitly; recovery remains request-driven.
       for (let remaining = 0; remaining < FORWARD_OPERATIONS.length; remaining++) {
         const operation = forwardOperation(saga.currentOperation);
         const expectedSteps = ['PAYMENT', 'INVENTORY', 'SHIPPING'].slice(0, FORWARD_OPERATIONS.indexOf(operation));
-        if (JSON.stringify(saga.completedSteps) !== JSON.stringify(expectedSteps) || saga.currentStep !== STEP_FOR_OPERATION[operation] || saga.inventoryFinalized) {
+        if (JSON.stringify(saga.completedSteps) !== JSON.stringify(expectedSteps) || saga.currentStep !== STEP_FOR_OPERATION[operation] || saga.inventoryFinalized || saga.compensatedSteps.length) {
           throw new Error('Inconsistent persisted saga progress; reconcile before continuing');
         }
         const command = buildCommand(operation, orderId, saga.id, saga.payload);
         saga = await this.transition(db, saga, { attempts: saga.attempts + 1, leaseOwner: randomUUID(), leaseExpiresAt: new Date(Date.now() + 60000) }, { event: 'COMMAND_DISPATCHED', operation });
-        let result: Result;
-        try {
-          result = ResultSchema.parse(await this.transport.execute(command));
-          if (result.operation !== operation || result.orderId !== orderId || result.sagaId !== saga.id || result.idempotencyKey !== command.idempotencyKey) throw new Error('Mismatched result');
-        } catch {
-          const { payload: _, ...metadata } = command;
-          result = ResultSchema.parse({ ...metadata, outcome: 'UNKNOWN', error: { code: 'PROVIDER_UNAVAILABLE', message: 'Command outcome could not be confirmed', retryable: true } });
-        }
+        const result = await this.execute(command);
         const common = { lastResult: result, leaseOwner: null, leaseExpiresAt: null };
         if (result.outcome === 'UNKNOWN') {
           await this.transition(db, saga, { ...common, nextAttemptAt: new Date(Date.now() + 1000) }, { event: 'RETRY_REQUIRED', operation, result });
@@ -74,7 +70,8 @@ export class OrderService {
             || (operation === 'CREATE_SHIPMENT' && result.error.code === 'SHIPPING_REJECTED');
           const status: SagaStatus = !expectedRejection ? 'IN_PROGRESS'
             : saga.completedSteps.length ? 'COMPENSATING' : 'FAILED';
-          await this.transition(db, saga, { ...common, status }, { event: operation === 'FINALIZE_INVENTORY' ? 'FINALIZATION_REJECTED' : 'STEP_REJECTED', operation, result });
+          saga = await this.transition(db, saga, { ...common, status }, { event: operation === 'FINALIZE_INVENTORY' ? 'FINALIZATION_REJECTED' : 'STEP_REJECTED', operation, result });
+          if (status === 'COMPENSATING') await this.compensate(db, saga);
           return;
         }
         if (operation === 'FINALIZE_INVENTORY') {
@@ -94,13 +91,49 @@ export class OrderService {
     }
   }
 
-  private async transition(db: NodePgDatabase, saga: Saga, patch: Partial<typeof sagaInstances.$inferInsert>, details: object): Promise<Saga> {
+  private async execute(command: Command): Promise<Result> {
+    try {
+      const result = ResultSchema.parse(await this.transport.execute(command));
+      if (result.operation !== command.operation || result.orderId !== command.orderId || result.sagaId !== command.sagaId || result.idempotencyKey !== command.idempotencyKey) throw new Error('Mismatched result');
+      return result;
+    } catch {
+      const { payload: _, ...metadata } = command;
+      return ResultSchema.parse({ ...metadata, outcome: 'UNKNOWN', error: { code: 'PROVIDER_UNAVAILABLE', message: 'Command outcome could not be confirmed', retryable: true } });
+    }
+  }
+
+  private async compensate(db: NodePgDatabase, initial: Saga): Promise<void> {
+    let saga = initial;
+    // The same session lock covers forward execution and all cleanup. A failed
+    // attempt stops this request; resume retries the same stable command key.
+    for (;;) {
+      const next = nextCompensation(saga);
+      if (!next) {
+        await this.transition(db, saga, { status: 'FAILED', leaseOwner: null, leaseExpiresAt: null }, { event: 'COMPENSATION_COMPLETED' }, 'COMPENSATION');
+        return;
+      }
+      const command = buildCommand(next.operation, saga.orderId, saga.id, saga.payload);
+      saga = await this.transition(db, saga, { attempts: saga.attempts + 1, leaseOwner: randomUUID(), leaseExpiresAt: new Date(Date.now() + 60000) },
+        { event: 'COMPENSATION_DISPATCHED', operation: next.operation }, 'COMPENSATION', next.step);
+      const result = await this.execute(command);
+      const common = { lastResult: result, leaseOwner: null, leaseExpiresAt: null };
+      if (result.outcome !== 'SUCCEEDED') {
+        await this.transition(db, saga, { ...common, nextAttemptAt: new Date(Date.now() + 1000) },
+          { event: 'COMPENSATION_RETRY_REQUIRED', operation: next.operation, result }, 'COMPENSATION', next.step);
+        return;
+      }
+      saga = await this.transition(db, saga, { ...common, compensatedSteps: [...saga.compensatedSteps, next.step], nextAttemptAt: new Date() },
+        { event: 'COMPENSATION_SUCCEEDED', operation: next.operation, result }, 'COMPENSATION', next.step);
+    }
+  }
+
+  private async transition(db: NodePgDatabase, saga: Saga, patch: Partial<typeof sagaInstances.$inferInsert>, details: object, direction: 'FORWARD' | 'COMPENSATION' = 'FORWARD', step = saga.currentStep): Promise<Saga> {
     return db.transaction(async tx => {
       const [updated] = await tx.update(sagaInstances).set({ ...patch, version: saga.version + 1, updatedAt: new Date() })
         .where(and(eq(sagaInstances.id, saga.id), eq(sagaInstances.version, saga.version))).returning();
       if (!updated) throw new Error('Saga changed concurrently; retry from persisted state');
       await tx.insert(sagaTransitions).values({ sagaId: saga.id, sequence: updated.version, fromStatus: saga.status,
-        toStatus: updated.status, step: saga.currentStep, direction: 'FORWARD', details });
+        toStatus: updated.status, step, direction, details });
       return updated;
     });
   }

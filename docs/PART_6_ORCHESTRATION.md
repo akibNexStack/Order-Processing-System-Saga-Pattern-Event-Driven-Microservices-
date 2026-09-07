@@ -36,28 +36,27 @@ curl -X POST http://localhost:3000/orders/<orderId>/resume
 
 Replace `<orderId>` before running these commands. Repeating the original order POST
 with the same customer/key/payload returns the same order and resumes unfinished
-forward work. A completed replay returns 200. Use a new checkout key for a genuinely
+forward work or compensation. A completed replay returns 200. Use a new checkout key for a genuinely
 new order; the server generates its order and saga IDs.
 
 ## Scope and failure behavior
 
-**This part implements forward orchestration, not automatic compensation.**
+**Part 6 provides forward orchestration; [Part 7](PART_7_COMPENSATION.md) adds compensation to this flow.**
 
 | Outcome | Persisted behavior |
 | --- | --- |
 | All forward steps and inventory finalization succeed | COMPLETED |
 | Confirmed payment decline before any successful step | FAILED |
-| Inventory or shipping business rejection after earlier success | COMPENSATING, requiresCompensation=true |
+| Inventory or shipping business rejection after earlier success | Automatically compensate; FAILED after cleanup, COMPENSATING while cleanup is pending |
 | HTTP timeout, unavailable service, malformed/mismatched response | IN_PROGRESS at the same operation; retry the same command |
 | Finalization rejection or unexpected business conflict | IN_PROGRESS for inspection/reconciliation |
 
-COMPENSATING orders deliberately stop. Money/stock from earlier successful steps
-remain until explicit compensation is implemented in Part 7. `/resume` does not yet
-issue refund, release, or cancellation commands. Do not interpret these orders as
-fully cleaned up, and do not repeatedly resume expecting an automatic reversal.
+COMPENSATING orders release completed inventory reservations and refund payments in
+reverse order. A failed or uncertain cleanup attempt stays COMPENSATING; repeat the
+original POST or use `/resume` to retry. See Part 7 for the full failure policy.
 
-IN_PROGRESS recovery is request-driven: repeat POST `/orders` or explicitly POST
-`/orders/:orderId/resume`. There is no background worker in Part 6. GET is read-only.
+IN_PROGRESS and COMPENSATING recovery is request-driven: repeat POST `/orders` or explicitly POST
+`/orders/:orderId/resume`. Background recovery remains Part 9. GET is read-only.
 `nextAttemptAt` and lease fields are persisted groundwork for Part 9; explicit resumes
 can run immediately and do not wait for the scheduled time. No RabbitMQ messages are
 used by this flow; event-driven transport comes in Part 8.
@@ -68,13 +67,13 @@ used by this flow; event-driven transport comes in Part 8.
 | --- | --- |
 | 201 | New order completed during this request |
 | 200 | Completed replay/resume, or a successful GET |
-| 202 | Work remains IN_PROGRESS or awaits Part 7 compensation |
+| 202 | Work remains IN_PROGRESS or COMPENSATING |
 | 400 | Invalid JSON/order payload/order ID |
 | 404 | Unknown order |
 | 409 | Customer idempotency key reused with changed payload |
 | 413 | Order request exceeds 32 KiB |
 | 415 | Missing/unsupported Content-Type |
-| 422 | Terminal FAILED saga, currently a confirmed first-step payment decline |
+| 422 | Terminal FAILED saga: no successful steps, or all required compensation confirmed |
 | 503 | Database/service error; retry the original key or known order ID |
 
 Responses include the order, item rows, saga state, ordered transition history, and
@@ -130,7 +129,7 @@ If finalization succeeds remotely but its response or the final database write i
 lost, the saga remains at FINALIZE_INVENTORY. Resume replays finalization and records
 completion. It must not compensate a finalized reservation because of a lost response.
 Confirmed finalization rejection remains visible for reconciliation rather than
-triggering automatic reversal. Part 7 must retain this completion policy.
+triggering automatic reversal. Part 7 retains this completion policy.
 
 ## Verification
 
@@ -149,12 +148,12 @@ URLs are used. Database users need CREATEDB privileges as in earlier test suites
 Tests cover the complete HTTP checkout, persistence before calls, concurrent duplicate
 orders across orchestrator instances, payload conflicts and customer-scoped keys,
 atomic acceptance rollback, ordered transitions, lost responses, state-write failures
-after remote success, payment decline, later-step compensation markers, finalization
+after remote success, payment decline, later-step reverse-order compensation, finalization
 response/write failures, shipping-stage resume, finalization rejection, malformed HTTP
 results, deadlines, inconsistent persisted progress, and real HTTP order/status calls.
 
-These verify forward orchestration and retry boundaries. Full process-kill background
-recovery and automatic reverse-order compensation are still later implementation parts.
+These verify forward orchestration, compensation, and retry boundaries. Background
+recovery and full process-kill recovery testing remain later implementation parts.
 
 References: [Drizzle transactions](https://orm.drizzle.team/docs/transactions) and
 [Node HTTP timeout signals](https://nodejs.org/api/globals.html#static-method-abortsignaltimeoutdelay).

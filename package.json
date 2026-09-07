@@ -15,7 +15,12 @@
     "infra:down": "docker compose down",
     "test": "npm run build && node --test --test-isolation=none --test-reporter=spec shared/test/*.test.mjs",
     "check": "npm run typecheck && npm test",
-    "predev": "npm run build --workspace @saga/shared"
+    "predev": "npm run build --workspace @saga/shared",
+    "db:generate": "npm run db:generate --workspaces --if-present",
+    "migrate": "npm run migrate --workspaces --if-present",
+    "db:seed": "npm run db:seed --workspace inventory-service",
+    "test:db": "npm run build && node --test --test-isolation=none --test-reporter=spec tests/database/*.test.mjs",
+    "check:all": "npm run check && npm run test:db"
   },
   "devDependencies": {
     "@types/amqplib": "^0.10.8",

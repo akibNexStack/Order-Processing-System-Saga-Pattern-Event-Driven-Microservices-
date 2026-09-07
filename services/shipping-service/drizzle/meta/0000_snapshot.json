@@ -1,0 +1,392 @@
+{
+  "id": "398719d5-8a7d-45fe-81f0-46ef57cec507",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.command_receipts": {
+      "name": "command_receipts",
+      "schema": "",
+      "columns": {
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "varchar(255)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "order_id": {
+          "name": "order_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "saga_id": {
+          "name": "saga_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "operation": {
+          "name": "operation",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fingerprint": {
+          "name": "fingerprint",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'PROCESSING'"
+        },
+        "result": {
+          "name": "result",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "receipts_order_idx": {
+          "name": "receipts_order_idx",
+          "columns": [
+            {
+              "expression": "order_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "receipts_recovery_idx": {
+          "name": "receipts_recovery_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "updated_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "receipt_key_valid": {
+          "name": "receipt_key_valid",
+          "value": "\"command_receipts\".\"idempotency_key\" ~ '^[A-Za-z0-9:_-]{1,255}$'"
+        },
+        "receipt_fingerprint_valid": {
+          "name": "receipt_fingerprint_valid",
+          "value": "\"command_receipts\".\"fingerprint\" ~ '^[0-9a-f]{64}$'"
+        },
+        "receipt_status_valid": {
+          "name": "receipt_status_valid",
+          "value": "\"command_receipts\".\"status\" IN ('PROCESSING', 'COMPLETED')"
+        },
+        "receipt_operation_valid": {
+          "name": "receipt_operation_valid",
+          "value": "\"command_receipts\".\"operation\" IN ('CREATE_SHIPMENT', 'CANCEL_SHIPMENT')"
+        },
+        "receipt_result_valid": {
+          "name": "receipt_result_valid",
+          "value": "(\"command_receipts\".\"status\" = 'PROCESSING' AND \"command_receipts\".\"result\" IS NULL) OR (\"command_receipts\".\"status\" = 'COMPLETED' AND \"command_receipts\".\"result\" IS NOT NULL AND jsonb_typeof(\"command_receipts\".\"result\") = 'object')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.shipment_cancellations": {
+      "name": "shipment_cancellations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "order_id": {
+          "name": "order_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "saga_id": {
+          "name": "saga_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "shipment_id": {
+          "name": "shipment_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'PENDING'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "cancellations_saga_idx": {
+          "name": "cancellations_saga_idx",
+          "columns": [
+            {
+              "expression": "saga_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "shipment_cancellations_shipment_id_order_id_shipments_id_order_id_fk": {
+          "name": "shipment_cancellations_shipment_id_order_id_shipments_id_order_id_fk",
+          "tableFrom": "shipment_cancellations",
+          "tableTo": "shipments",
+          "columnsFrom": [
+            "shipment_id",
+            "order_id"
+          ],
+          "columnsTo": [
+            "id",
+            "order_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "shipment_cancellations_order_id_unique": {
+          "name": "shipment_cancellations_order_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "order_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "cancellation_status_valid": {
+          "name": "cancellation_status_valid",
+          "value": "\"shipment_cancellations\".\"status\" IN ('PENDING', 'CANCELLED', 'NOOP')"
+        },
+        "cancellation_shipment_required": {
+          "name": "cancellation_shipment_required",
+          "value": "\"shipment_cancellations\".\"status\" <> 'CANCELLED' OR \"shipment_cancellations\".\"shipment_id\" IS NOT NULL"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.shipments": {
+      "name": "shipments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "order_id": {
+          "name": "order_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "saga_id": {
+          "name": "saga_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "shipping_address": {
+          "name": "shipping_address",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "items": {
+          "name": "items",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'PENDING'"
+        },
+        "provider_shipment_id": {
+          "name": "provider_shipment_id",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cancelled_at": {
+          "name": "cancelled_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "shipments_saga_idx": {
+          "name": "shipments_saga_idx",
+          "columns": [
+            {
+              "expression": "saga_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "shipments_order_id_unique": {
+          "name": "shipments_order_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "order_id"
+          ]
+        },
+        "shipments_provider_shipment_id_unique": {
+          "name": "shipments_provider_shipment_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "provider_shipment_id"
+          ]
+        },
+        "shipments_id_order_unique": {
+          "name": "shipments_id_order_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "order_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "shipment_status_valid": {
+          "name": "shipment_status_valid",
+          "value": "\"shipments\".\"status\" IN ('PENDING', 'CREATED', 'CANCELLED', 'FAILED')"
+        },
+        "shipment_address_object": {
+          "name": "shipment_address_object",
+          "value": "jsonb_typeof(\"shipments\".\"shipping_address\") = 'object'"
+        },
+        "shipment_items_valid": {
+          "name": "shipment_items_valid",
+          "value": "CASE WHEN jsonb_typeof(\"shipments\".\"items\") = 'array' THEN jsonb_array_length(\"shipments\".\"items\") BETWEEN 1 AND 100 ELSE false END"
+        },
+        "shipment_provider_required": {
+          "name": "shipment_provider_required",
+          "value": "\"shipments\".\"status\" NOT IN ('CREATED', 'CANCELLED') OR \"shipments\".\"provider_shipment_id\" IS NOT NULL"
+        },
+        "shipment_cancel_time_valid": {
+          "name": "shipment_cancel_time_valid",
+          "value": "(\"shipments\".\"status\" = 'CANCELLED') = (\"shipments\".\"cancelled_at\" IS NOT NULL)"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

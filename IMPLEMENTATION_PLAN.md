@@ -16,6 +16,8 @@ Build this in **10 parts**, completing each part’s goal before moving forward.
 
 ## Part 2 — Design databases and migrations
 
+**Status:** Implemented. See [database design and verification](docs/PART_2_DATABASES.md). Run `npm run check:all` to verify contracts and real PostgreSQL integration tests.
+
 - Payment: payment records and refund records.
 - Inventory: products, available stock, and reservations.
 - Shipping: shipment records and cancellation status.

@@ -199,36 +199,18 @@ saga-order-system/
 
 ## 8. Database Schema
 
-### `payments` (Payment Service)
-```sql
-CREATE TABLE payments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  order_id UUID NOT NULL,
-  user_id UUID NOT NULL,
-  amount DECIMAL(10,2) NOT NULL,
-  status VARCHAR(20) NOT NULL,               -- CHARGED | REFUNDED | FAILED
-  idempotency_key VARCHAR(255) UNIQUE NOT NULL,
-  provider_transaction_id VARCHAR(255),
-  created_at TIMESTAMP DEFAULT NOW(),
-  refunded_at TIMESTAMP
-);
-```
+Part 2 provides service-owned Drizzle schemas and generated SQL migrations:
 
-### `saga_instances` (Order Orchestrator)
-```sql
-CREATE TABLE saga_instances (
-  id UUID PRIMARY KEY,
-  order_id UUID NOT NULL,
-  current_step VARCHAR(50) NOT NULL,         -- PAYMENT | INVENTORY | SHIPPING | ...
-  status VARCHAR(20) NOT NULL,               -- IN_PROGRESS | COMPENSATING | COMPLETED | FAILED
-  completed_steps JSONB DEFAULT '[]',
-  payload JSONB NOT NULL,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
-```
+| Service | Tables | Schema |
+|---|---|---|
+| Payment | payments, refunds, command_receipts | [schema.ts](services/payment-service/src/db/schema.ts) |
+| Inventory | products, reservations, reservation_items, command_receipts | [schema.ts](services/inventory-service/src/db/schema.ts) |
+| Shipping | shipments, shipment_cancellations, command_receipts | [schema.ts](services/shipping-service/src/db/schema.ts) |
+| Orchestrator | orders, order_items, saga_instances, saga_transitions | [schema.ts](services/order-orchestrator/src/db/schema.ts) |
 
-*(Inventory and Shipping schemas follow the same idempotency-key pattern — see `services/*/db/schema.sql` once created.)*
+Amounts use bounded integer minor units, matching Part 1 contracts. Command receipts
+provide database uniqueness for idempotency; service handlers will implement atomic
+business operations in subsequent parts. See [database design, seed data, and tests](docs/PART_2_DATABASES.md).
 
 ---
 
@@ -270,6 +252,10 @@ cp services/order-orchestrator/.env.example services/order-orchestrator/.env
 # Start four PostgreSQL instances and RabbitMQ
 npm run infra:up
 
+# Apply migrations and insert demo inventory
+npm run migrate
+npm run db:seed
+
 # Start all four service development servers
 npm run dev
 ```
@@ -295,7 +281,7 @@ npm run build
 # Run a compiled service
 npm start --workspace payment-service
 
-# After adding tables to that service's src/db/schema.ts:
+# After changing that service's src/db/schema.ts:
 npm run db:generate --workspace payment-service
 npm run migrate --workspace payment-service
 
@@ -303,8 +289,8 @@ npm run migrate --workspace payment-service
 npm run infra:down
 ```
 
-Drizzle configuration is included for each service. Schemas are placeholders;
-generate and apply migrations after defining the tables.
+Drizzle schemas and initial migrations are included for each service. Run
+`npm run check:all` to verify types, builds, contract tests, and database integration tests.
 
 ---
 

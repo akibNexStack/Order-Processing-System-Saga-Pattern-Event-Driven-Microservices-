@@ -13,6 +13,7 @@ export const shipments = pgTable('shipments', {
   items: jsonb('items').$type<OrderItems>().notNull(),
   status: varchar('status', { length: 20 }).notNull().default('PENDING'),
   providerShipmentId: varchar('provider_shipment_id', { length: 200 }).unique(),
+  createResult: jsonb('create_result'),
   cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
@@ -62,3 +63,20 @@ export const commandReceipts = pgTable('command_receipts', {
   index('receipts_order_idx').on(t.orderId),
   index('receipts_recovery_idx').on(t.status, t.updatedAt),
 ]);
+
+// Durable local provider simulator, separate from application shipment records.
+// Production adapters must use an external provider's idempotency guarantee.
+export const simulatedProviderShipments = pgTable('simulated_provider_shipments', {
+  orderId: uuid('order_id').primaryKey(),
+  sagaId: uuid('saga_id').notNull(),
+  fingerprint: varchar('fingerprint', { length: 64 }),
+  status: varchar('status', { length: 20 }).notNull(),
+  shipmentId: varchar('shipment_id', { length: 200 }),
+}, (t) => [check('sim_shipment_status', sql`${t.status} IN ('CREATED', 'CANCELLED', 'NOOP')`)]);
+
+export const simulatedProviderRequests = pgTable('simulated_provider_requests', {
+  idempotencyKey: varchar('idempotency_key', { length: 255 }).primaryKey(),
+  fingerprint: varchar('fingerprint', { length: 64 }).notNull(),
+  result: jsonb('result').notNull(),
+  createdAt: createdAt(),
+});

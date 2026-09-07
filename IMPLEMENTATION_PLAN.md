@@ -52,6 +52,8 @@ Build this in **10 parts**, completing each part’s goal before moving forward.
 
 ## Part 5 — Implement Shipping Service
 
+**Status:** Implemented and verified. See [Shipping Service endpoints, cancellation policy, and tests](docs/PART_5_SHIPPING.md). Run `npm run test:shipping` for shipping checks or `npm run check:all` for all implemented parts.
+
 - Implement shipment creation, cancellation, and status endpoints.
 - Make creation and cancellation idempotent.
 - Add controlled shipping failures.

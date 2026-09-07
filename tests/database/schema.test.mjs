@@ -14,7 +14,7 @@ const address = { recipient: 'Test', line1: 'Road 1', city: 'Dhaka', postalCode:
 const fixtures = [
   ['payment-service', 'PAYMENT', ['command_receipts', 'payments', 'refunds', 'simulated_provider_payments', 'simulated_provider_requests'], 'CHARGE_PAYMENT'],
   ['inventory-service', 'INVENTORY', ['command_receipts', 'products', 'reservation_items', 'reservations'], 'RESERVE_INVENTORY'],
-  ['shipping-service', 'SHIPPING', ['command_receipts', 'shipment_cancellations', 'shipments'], 'CREATE_SHIPMENT'],
+  ['shipping-service', 'SHIPPING', ['command_receipts', 'shipment_cancellations', 'shipments', 'simulated_provider_requests', 'simulated_provider_shipments'], 'CREATE_SHIPMENT'],
   ['order-orchestrator', 'ORDER', ['order_items', 'orders', 'saga_instances', 'saga_transitions'], null],
 ];
 const rejects = (pool, sql, values, code) => assert.rejects(pool.query(sql, values), (error) => error.code === code);

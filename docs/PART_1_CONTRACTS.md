@@ -99,8 +99,8 @@ SHIPPING → CANCEL_SHIPMENT, INVENTORY → RELEASE_INVENTORY, PAYMENT → REFUN
 
 The transition engine, durable progress, retry scheduling, and result correlation are
 future implementation parts. Part 4 defines inventory finalization and disables automatic expiry; see
-[Inventory Service](PART_4_INVENTORY.md). Shipment cancellation eligibility remains
-for its service implementation.
+[Inventory Service](PART_4_INVENTORY.md). Part 5 defines booking cancellation eligibility in the
+[Shipping Service](PART_5_SHIPPING.md).
 
 ## Idempotency rules
 

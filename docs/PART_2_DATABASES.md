@@ -10,7 +10,7 @@ are correlation identifiers; their ownership must be checked by the service hand
 | --- | --- | --- |
 | Payment | 5433 | payments, refunds, command_receipts; Part 3 adds two simulated_provider_* tables |
 | Inventory | 5434 | products, reservations, reservation_items, command_receipts |
-| Shipping | 5435 | shipments, shipment_cancellations, command_receipts |
+| Shipping | 5435 | shipments, shipment_cancellations, command_receipts; Part 5 adds two simulated_provider_* tables |
 | Orchestrator | 5436 | orders, order_items, saga_instances, saga_transitions |
 
 Definitions live in each service's `src/db/schema.ts`. Generated SQL and Drizzle

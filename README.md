@@ -235,7 +235,7 @@ Add the recovery worker, structured logging, and a simple status endpoint/dashbo
 
 ## 10. Local Development Setup
 
-Part 1 is implemented in the `@saga/shared` workspace: validated order/command/result contracts, idempotency helpers, and local provider simulations. See [contracts and business rules](docs/PART_1_CONTRACTS.md). Run `npm run check` for type checking, builds, and contract/provider tests. Business endpoints and persistent saga processing remain future work.
+Part 1 is implemented in the `@saga/shared` workspace: validated order/command/result contracts, idempotency helpers, and local provider simulations. See [contracts and business rules](docs/PART_1_CONTRACTS.md). Run `npm run check` for type checking, builds, and contract/provider tests. Payment endpoints are implemented in Part 3; see [Payment Service usage and tests](docs/PART_3_PAYMENT.md). Other business endpoints and persistent saga processing remain future work.
 
 Run commands from the repository root (Node.js, npm, Docker, and Docker Compose required):
 
@@ -262,8 +262,8 @@ npm run dev
 
 The orchestrator listens on port **3000**, payment on **3001**, inventory on **3002**,
 and shipping on **3003**. Each currently exposes `GET /health` as a liveness check;
-it does not check database or broker connectivity. Business operations and saga
-logic remain to be implemented.
+it does not check database or broker connectivity. Payment charge/refund/status endpoints are implemented; other service operations and
+saga logic remain to be implemented. See [Payment Service examples](docs/PART_3_PAYMENT.md).
 
 RabbitMQ management is available at `http://localhost:15672` with local development
 credentials `saga` / `saga`. PostgreSQL ports are **5433–5436**, mapped to payment,

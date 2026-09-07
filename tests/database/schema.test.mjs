@@ -12,7 +12,7 @@ import { seedInventory, inventorySeed } from '../../services/inventory-service/d
 const fingerprint = 'a'.repeat(64);
 const address = { recipient: 'Test', line1: 'Road 1', city: 'Dhaka', postalCode: '1207', countryCode: 'BD' };
 const fixtures = [
-  ['payment-service', 'PAYMENT', ['command_receipts', 'payments', 'refunds'], 'CHARGE_PAYMENT'],
+  ['payment-service', 'PAYMENT', ['command_receipts', 'payments', 'refunds', 'simulated_provider_payments', 'simulated_provider_requests'], 'CHARGE_PAYMENT'],
   ['inventory-service', 'INVENTORY', ['command_receipts', 'products', 'reservation_items', 'reservations'], 'RESERVE_INVENTORY'],
   ['shipping-service', 'SHIPPING', ['command_receipts', 'shipment_cancellations', 'shipments'], 'CREATE_SHIPMENT'],
   ['order-orchestrator', 'ORDER', ['order_items', 'orders', 'saga_instances', 'saga_transitions'], null],

@@ -8,7 +8,7 @@ are correlation identifiers; their ownership must be checked by the service hand
 
 | Service | Local port | Tables |
 | --- | --- | --- |
-| Payment | 5433 | payments, refunds, command_receipts |
+| Payment | 5433 | payments, refunds, command_receipts; Part 3 adds two simulated_provider_* tables |
 | Inventory | 5434 | products, reservations, reservation_items, command_receipts |
 | Shipping | 5435 | shipments, shipment_cancellations, command_receipts |
 | Orchestrator | 5436 | orders, order_items, saga_instances, saga_transitions |

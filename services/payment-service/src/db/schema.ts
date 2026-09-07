@@ -13,6 +13,7 @@ export const payments = pgTable('payments', {
   currency: varchar('currency', { length: 3 }).notNull(),
   status: varchar('status', { length: 20 }).notNull().default('PENDING'),
   providerTransactionId: varchar('provider_transaction_id', { length: 200 }).unique(),
+  chargeResult: jsonb('charge_result'),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
   refundedAt: timestamp('refunded_at', { withTimezone: true }),
@@ -64,3 +65,20 @@ export const commandReceipts = pgTable('command_receipts', {
   index('receipts_order_idx').on(t.orderId),
   index('receipts_recovery_idx').on(t.status, t.updatedAt),
 ]);
+
+// Durable local provider simulator, separate from application payment records.
+// Production adapters must use an external provider's idempotency guarantee.
+export const simulatedProviderPayments = pgTable('simulated_provider_payments', {
+  orderId: uuid('order_id').primaryKey(),
+  sagaId: uuid('saga_id').notNull(),
+  fingerprint: varchar('fingerprint', { length: 64 }),
+  status: varchar('status', { length: 20 }).notNull(),
+  transactionId: varchar('transaction_id', { length: 200 }),
+}, (t) => [check('sim_payment_status', sql`${t.status} IN ('CHARGED', 'REFUNDED', 'NOOP')`)]);
+
+export const simulatedProviderRequests = pgTable('simulated_provider_requests', {
+  idempotencyKey: varchar('idempotency_key', { length: 255 }).primaryKey(),
+  fingerprint: varchar('fingerprint', { length: 64 }).notNull(),
+  result: jsonb('result').notNull(),
+  createdAt: createdAt(),
+});

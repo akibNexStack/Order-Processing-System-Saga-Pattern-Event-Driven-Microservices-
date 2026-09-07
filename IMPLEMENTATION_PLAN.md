@@ -28,6 +28,8 @@ Build this in **10 parts**, completing each part’s goal before moving forward.
 
 ## Part 3 — Implement Payment Service
 
+**Status:** Implemented and verified. See [Payment Service endpoints, examples, and tests](docs/PART_3_PAYMENT.md). Run `npm run test:payment` for payment integration checks or `npm run check:all` for all implemented parts.
+
 - Implement charge, refund, and payment-status endpoints.
 - Make charges and refunds idempotent.
 - Reject reuse of an idempotency key with a different payload.

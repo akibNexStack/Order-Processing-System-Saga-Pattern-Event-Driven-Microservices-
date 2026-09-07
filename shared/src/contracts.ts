@@ -38,7 +38,7 @@ export const SagaStepSchema = z.enum(['PAYMENT', 'INVENTORY', 'SHIPPING']);
 export const FORWARD_STEPS = ['PAYMENT', 'INVENTORY', 'SHIPPING'] as const;
 export const OperationSchema = z.enum([
   'CHARGE_PAYMENT', 'REFUND_PAYMENT', 'RESERVE_INVENTORY',
-  'RELEASE_INVENTORY', 'CREATE_SHIPMENT', 'CANCEL_SHIPMENT',
+  'RELEASE_INVENTORY', 'FINALIZE_INVENTORY', 'CREATE_SHIPMENT', 'CANCEL_SHIPMENT',
 ]);
 export const COMPENSATION_OPERATIONS = {
   PAYMENT: 'REFUND_PAYMENT', INVENTORY: 'RELEASE_INVENTORY', SHIPPING: 'CANCEL_SHIPMENT',
@@ -63,6 +63,9 @@ export const ReserveInventoryCommandSchema = z.strictObject({
 export const ReleaseInventoryCommandSchema = z.strictObject({
   ...metadata, operation: z.literal('RELEASE_INVENTORY'), payload: z.strictObject({}),
 });
+export const FinalizeInventoryCommandSchema = z.strictObject({
+  ...metadata, operation: z.literal('FINALIZE_INVENTORY'), payload: z.strictObject({}),
+});
 export const CreateShipmentCommandSchema = z.strictObject({
   ...metadata, operation: z.literal('CREATE_SHIPMENT'),
   payload: z.strictObject({ items: ItemsSchema, shippingAddress: AddressSchema }),
@@ -72,7 +75,7 @@ export const CancelShipmentCommandSchema = z.strictObject({
 });
 export const CommandSchema = z.discriminatedUnion('operation', [
   ChargePaymentCommandSchema, RefundPaymentCommandSchema, ReserveInventoryCommandSchema,
-  ReleaseInventoryCommandSchema, CreateShipmentCommandSchema, CancelShipmentCommandSchema,
+  ReleaseInventoryCommandSchema, FinalizeInventoryCommandSchema, CreateShipmentCommandSchema, CancelShipmentCommandSchema,
 ]);
 
 const success = { ...metadata, outcome: z.literal('SUCCEEDED') };
@@ -81,6 +84,7 @@ export const SuccessResultSchema = z.discriminatedUnion('operation', [
   z.strictObject({ ...success, operation: z.literal('REFUND_PAYMENT'), data: z.strictObject({ status: z.enum(['REFUNDED', 'NOOP']) }) }),
   z.strictObject({ ...success, operation: z.literal('RESERVE_INVENTORY'), data: z.strictObject({ status: z.literal('RESERVED'), reservationId: IdSchema }) }),
   z.strictObject({ ...success, operation: z.literal('RELEASE_INVENTORY'), data: z.strictObject({ status: z.enum(['RELEASED', 'NOOP']) }) }),
+  z.strictObject({ ...success, operation: z.literal('FINALIZE_INVENTORY'), data: z.strictObject({ status: z.literal('FINALIZED'), reservationId: IdSchema }) }),
   z.strictObject({ ...success, operation: z.literal('CREATE_SHIPMENT'), data: z.strictObject({ status: z.literal('CREATED'), providerShipmentId: text }) }),
   z.strictObject({ ...success, operation: z.literal('CANCEL_SHIPMENT'), data: z.strictObject({ status: z.enum(['CANCELLED', 'NOOP']) }) }),
 ]);

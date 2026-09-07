@@ -40,7 +40,7 @@ Importing schemas or the factory does not connect to a database.
   cannot be negative; item quantities must be 1–10,000. Each product appears once in
   each reservation. Foreign keys preserve reservation/product relationships.
 - Inventory `FINALIZED` and optional expiry fields reserve room for Part 4's lifecycle.
-  No worker expires reservations yet. Reservation changes and stock changes must occur
+  Part 4 implements explicit finalization and keeps automatic expiry disabled. Reservation changes and stock changes must occur
   in one transaction; constraints alone do not implement reservation bookkeeping.
 - Checkout idempotency keys are unique per customer. Order items have local order
   foreign keys; product IDs deliberately have no cross-database foreign key.

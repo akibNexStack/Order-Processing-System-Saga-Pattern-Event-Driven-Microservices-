@@ -22,6 +22,8 @@ export const reservations = pgTable('reservations', {
   sagaId: uuid('saga_id').notNull(),
   status: varchar('status', { length: 20 }).notNull().default('PENDING'),
   expiresAt: timestamp('expires_at', { withTimezone: true }),
+  reserveFingerprint: varchar('reserve_fingerprint', { length: 64 }),
+  reserveResult: jsonb('reserve_result'),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 }, (t) => [
@@ -57,7 +59,7 @@ export const commandReceipts = pgTable('command_receipts', {
   check('receipt_key_valid', sql`${t.idempotencyKey} ~ '^[A-Za-z0-9:_-]{1,255}$'`),
   check('receipt_fingerprint_valid', sql`${t.fingerprint} ~ '^[0-9a-f]{64}$'`),
   check('receipt_status_valid', sql`${t.status} IN ('PROCESSING', 'COMPLETED')`),
-  check('receipt_operation_valid', sql`${t.operation} IN ('RESERVE_INVENTORY', 'RELEASE_INVENTORY')`),
+  check('receipt_operation_valid', sql`${t.operation} IN ('RESERVE_INVENTORY', 'RELEASE_INVENTORY', 'FINALIZE_INVENTORY')`),
   check('receipt_result_valid', sql`(${t.status} = 'PROCESSING' AND ${t.result} IS NULL) OR (${t.status} = 'COMPLETED' AND ${t.result} IS NOT NULL AND jsonb_typeof(${t.result}) = 'object')`),
   index('receipts_order_idx').on(t.orderId),
   index('receipts_recovery_idx').on(t.status, t.updatedAt),

@@ -8,6 +8,13 @@
       "when": 1788763864053,
       "tag": "0000_initial",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788766690351,
+      "tag": "0001_friendly_bloodaxe",
+      "breakpoints": true
     }
   ]
 }

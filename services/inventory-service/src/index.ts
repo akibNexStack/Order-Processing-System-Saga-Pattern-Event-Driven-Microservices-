@@ -1,18 +1,24 @@
 import 'dotenv/config';
 import { serve } from '@hono/node-server';
-import { Hono } from 'hono';
 import { z } from 'zod';
+import { createDatabase } from './db/client.js';
+import { createApp } from './app.js';
+import { InventoryService } from './inventory/service.js';
 
 const port = z.coerce.number().int().min(1).max(65535).parse(process.env.PORT ?? 3002);
-const app = new Hono();
-
-// Liveness only; database and broker connectivity are not checked yet.
-app.get('/health', (c) => c.json({ service: 'inventory-service', status: 'ok' }));
-
-const server = serve({ fetch: app.fetch, port }, (info) => {
-  console.log('inventory-service listening on port ' + info.port);
+const { pool } = createDatabase(z.string().min(1).parse(process.env.DATABASE_URL));
+const server = serve({ fetch: createApp(new InventoryService(pool)).fetch, port }, info => {
+  console.log(`inventory-service listening on port ${info.port}`);
 });
-
+let stopping = false;
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
-  process.on(signal, () => server.close());
+  process.on(signal, () => {
+    if (stopping) return;
+    stopping = true;
+    server.close(() => { void pool.end(); });
+  });
 }
+server.on('error', (error: NodeJS.ErrnoException) => {
+  console.error(`inventory-service could not start: ${error.code ?? 'server error'}`);
+  void pool.end().finally(() => { process.exitCode = 1; });
+});

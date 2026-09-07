@@ -66,6 +66,7 @@ These contracts can be carried over HTTP initially and RabbitMQ later.
 | REFUND_PAYMENT | empty object | REFUNDED or NOOP |
 | RESERVE_INVENTORY | items | RESERVED, reservationId |
 | RELEASE_INVENTORY | empty object | RELEASED or NOOP |
+| FINALIZE_INVENTORY (added in Part 4) | empty object | FINALIZED, reservationId |
 | CREATE_SHIPMENT | items, shippingAddress | CREATED, providerShipmentId |
 | CANCEL_SHIPMENT | empty object | CANCELLED or NOOP |
 
@@ -97,9 +98,9 @@ there are no effects to undo. Successful steps compensate in reverse order:
 SHIPPING → CANCEL_SHIPMENT, INVENTORY → RELEASE_INVENTORY, PAYMENT → REFUND_PAYMENT.
 
 The transition engine, durable progress, retry scheduling, and result correlation are
-future implementation parts. Inventory finalization/expiry and shipment cancellation
-eligibility must be resolved in their service implementations before expiring stock
-or integrating irreversible fulfillment. Do not auto-expire reservations yet.
+future implementation parts. Part 4 defines inventory finalization and disables automatic expiry; see
+[Inventory Service](PART_4_INVENTORY.md). Shipment cancellation eligibility remains
+for its service implementation.
 
 ## Idempotency rules
 

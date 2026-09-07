@@ -40,6 +40,8 @@ Build this in **10 parts**, completing each part’s goal before moving forward.
 
 ## Part 4 — Implement Inventory Service
 
+**Status:** Implemented and verified. See [Inventory Service endpoints, lifecycle, and tests](docs/PART_4_INVENTORY.md). Run `npm run test:inventory` for inventory checks or `npm run check:all` for all implemented parts.
+
 - Implement reserve, release, and reservation-status endpoints.
 - Reserve all items in an order within one local transaction.
 - Prevent overselling using atomic updates or row locking.

@@ -308,6 +308,10 @@ recovery, and process/broker crash scenarios. System tests manage an isolated Do
 
 ## 11. Testing Strategy
 
+For manual API checks, import [the Postman collection](postman/Saga-System.postman_collection.json).
+It includes request data and response assertions for every HTTP route. Follow the
+[Postman guide](postman/README.md) for setup, the optional local environment, and failure scenarios.
+
 - **Unit tests** — compensating-action logic, state machine transitions
 - **Integration tests** — each service's endpoints against a real local Postgres
 - **Saga-level tests** — simulate a forced failure at each step (payment fails, inventory fails, shipping fails) and assert the correct compensations ran

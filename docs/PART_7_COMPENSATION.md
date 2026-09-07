@@ -1,5 +1,9 @@
 # Part 7 — Durable HTTP compensation
 
+> The running services now use [Part 8 RabbitMQ transport](PART_8_MESSAGING.md).
+> This document describes the earlier HTTP implementation retained for regression tests.
+
+
 Confirmed inventory rejection automatically refunds the successful payment. Confirmed
 shipping rejection automatically releases inventory, then refunds payment. The same
 request attempts cleanup; `FAILED` is saved only after every required undo is confirmed.

@@ -15,6 +15,13 @@
       "when": 1788767493421,
       "tag": "0001_wild_kate_bishop",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788776560191,
+      "tag": "0002_powerful_rocket_raccoon",
+      "breakpoints": true
     }
   ]
 }

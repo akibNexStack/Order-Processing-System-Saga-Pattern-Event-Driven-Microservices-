@@ -20,11 +20,12 @@
     "migrate": "npm run migrate --workspaces --if-present",
     "db:seed": "npm run db:seed --workspace inventory-service",
     "test:db": "npm run build && node --test --test-isolation=none --test-reporter=spec tests/database/*.test.mjs",
-    "check:all": "npm run check && npm run test:db && npm run test:payment && npm run test:inventory && npm run test:shipping && npm run test:orchestrator",
+    "check:all": "npm run check && npm run test:db && npm run test:payment && npm run test:inventory && npm run test:shipping && npm run test:orchestrator && npm run test:messaging",
     "test:payment": "npm run build && node --test --test-isolation=none --test-reporter=spec tests/payment/*.test.mjs",
     "test:inventory": "npm run build && node --test --test-isolation=none --test-reporter=spec tests/inventory/*.test.mjs",
     "test:shipping": "npm run build && node --test --test-isolation=none --test-reporter=spec tests/shipping/*.test.mjs",
-    "test:orchestrator": "npm run build && node --test --test-isolation=none --test-reporter=spec tests/orchestrator/*.test.mjs"
+    "test:orchestrator": "npm run build && node --test --test-isolation=none --test-reporter=spec tests/orchestrator/*.test.mjs",
+    "test:messaging": "npm run build && node --test --test-isolation=none --test-reporter=spec tests/messaging/*.test.mjs"
   },
   "devDependencies": {
     "@types/amqplib": "^0.10.8",

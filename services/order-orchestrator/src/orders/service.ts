@@ -30,9 +30,12 @@ export class OrderService {
       await tx.insert(orderItems).values(payload.items.map(item => ({ orderId: inserted.id, ...item })));
       const [saga] = await tx.insert(sagaInstances).values({ orderId: inserted.id, payload, version: 1 }).returning();
       await tx.insert(sagaTransitions).values({ sagaId: saga.id, sequence: 1, toStatus: 'IN_PROGRESS', step: 'PAYMENT', direction: 'FORWARD', details: { event: 'ORDER_ACCEPTED' } });
+      await this.onAccepted(tx, saga);
       return { orderId: inserted.id, created: true };
     });
   }
+
+  protected async onAccepted(_db: NodePgDatabase, _saga: Saga): Promise<void> {}
 
   async run(orderId: string): Promise<void> {
     const client = await this.pool.connect();

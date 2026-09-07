@@ -89,6 +89,8 @@ Build this in **10 parts**, completing each part’s goal before moving forward.
 
 ## Part 8 — Move the saga to RabbitMQ
 
+**Status:** Implemented and verified. See [RabbitMQ transport and durability](docs/PART_8_MESSAGING.md). Run `npm run test:messaging` or `npm run check:all`.
+
 - Define exchanges, queues, routing keys, and validated message envelopes.
 - Replace service-to-service HTTP calls with commands and result events.
 - Add a transactional outbox to reliably publish committed database changes.

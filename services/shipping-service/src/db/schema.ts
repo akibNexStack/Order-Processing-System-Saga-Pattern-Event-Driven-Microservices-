@@ -80,3 +80,5 @@ export const simulatedProviderRequests = pgTable('simulated_provider_requests', 
   result: jsonb('result').notNull(),
   createdAt: createdAt(),
 });
+
+export { messageInbox, messageOutbox } from '@saga/shared/messaging';

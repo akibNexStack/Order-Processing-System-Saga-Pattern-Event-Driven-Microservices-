@@ -15,6 +15,13 @@
       "when": 1788765210120,
       "tag": "0001_superb_banshee",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788776556049,
+      "tag": "0002_slow_jazinda",
+      "breakpoints": true
     }
   ]
 }

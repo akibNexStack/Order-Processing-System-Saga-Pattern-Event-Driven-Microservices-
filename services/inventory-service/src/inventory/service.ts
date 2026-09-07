@@ -1,3 +1,4 @@
+import type { ResultCommit } from '@saga/shared/messaging';
 import { eq, inArray, sql, asc } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type pg from 'pg';
@@ -18,7 +19,7 @@ function success(command: InventoryCommand, data: object): Result {
 
 export class InventoryService {
   constructor(private readonly pool: pg.Pool) {}
-  async execute(input: InventoryCommand): Promise<Result> {
+  async execute(input: InventoryCommand, commit?: ResultCommit): Promise<Result> {
     const parsed = CommandSchema.parse(input);
     if (!['RESERVE_INVENTORY', 'RELEASE_INVENTORY', 'FINALIZE_INVENTORY'].includes(parsed.operation)) throw new Error('Unsupported inventory operation');
     const command = { ...parsed, orderId: parsed.orderId.toLowerCase(), sagaId: parsed.sagaId.toLowerCase(),
@@ -96,6 +97,7 @@ export class InventoryService {
         }
       }
       await tx.update(commandReceipts).set({ status: 'COMPLETED', result, updatedAt: new Date() }).where(eq(commandReceipts.idempotencyKey, command.idempotencyKey));
+      await commit?.(tx, result);
       return result;
     });
   }

@@ -1,3 +1,4 @@
+import type { ResultCommit } from '@saga/shared/messaging';
 import { eq, or } from 'drizzle-orm';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type pg from 'pg';
@@ -9,7 +10,7 @@ type Shipment = typeof shipments.$inferSelect;
 export class ShippingService {
   constructor(private readonly pool: pg.Pool, private readonly provider: ShippingProvider, private readonly providerTimeoutMs = 5000) {}
 
-  async execute(input: ShippingCommand): Promise<Result> {
+  async execute(input: ShippingCommand, commit?: ResultCommit): Promise<Result> {
     const parsed = input.operation === 'CREATE_SHIPMENT' ? CreateShipmentCommandSchema.parse(input) : CancelShipmentCommandSchema.parse(input);
     const command: ShippingCommand = { ...parsed, orderId: parsed.orderId.toLowerCase(), sagaId: parsed.sagaId.toLowerCase(),
       ...(parsed.operation === 'CREATE_SHIPMENT' ? { payload: { ...parsed.payload, items: parsed.payload.items.map(item => ({ ...item, productId: item.productId.toLowerCase() })).sort((a, b) => a.productId.localeCompare(b.productId)) } } : {}),
@@ -78,6 +79,7 @@ export class ShippingService {
           }
         }
         await tx.update(commandReceipts).set({ status: 'COMPLETED', result, updatedAt: new Date() }).where(eq(commandReceipts.idempotencyKey, command.idempotencyKey));
+        await commit?.(tx, result);
       });
       return result;
     } finally {

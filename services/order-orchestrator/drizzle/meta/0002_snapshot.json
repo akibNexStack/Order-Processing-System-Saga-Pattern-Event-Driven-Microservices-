@@ -1,0 +1,652 @@
+{
+  "id": "6103bce0-9c7f-4cef-b0ae-c052fa698c05",
+  "prevId": "fdb98394-b4e1-4dd9-85e9-964b927d9dfc",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.message_inbox": {
+      "name": "message_inbox",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "fingerprint": {
+          "name": "fingerprint",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "inbox_fingerprint_valid": {
+          "name": "inbox_fingerprint_valid",
+          "value": "\"message_inbox\".\"fingerprint\" ~ '^[0-9a-f]{64}$'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.message_outbox": {
+      "name": "message_outbox",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "route": {
+          "name": "route",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "envelope": {
+          "name": "envelope",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "available_at": {
+          "name": "available_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "published_at": {
+          "name": "published_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "outbox_pending_idx": {
+          "name": "outbox_pending_idx",
+          "columns": [
+            {
+              "expression": "available_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"message_outbox\".\"published_at\" IS NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "outbox_envelope_object": {
+          "name": "outbox_envelope_object",
+          "value": "jsonb_typeof(\"message_outbox\".\"envelope\") = 'object'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.order_items": {
+      "name": "order_items",
+      "schema": "",
+      "columns": {
+        "order_id": {
+          "name": "order_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "product_id": {
+          "name": "product_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "order_items_order_id_orders_id_fk": {
+          "name": "order_items_order_id_orders_id_fk",
+          "tableFrom": "order_items",
+          "tableTo": "orders",
+          "columnsFrom": [
+            "order_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "order_items_order_id_product_id_pk": {
+          "name": "order_items_order_id_product_id_pk",
+          "columns": [
+            "order_id",
+            "product_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "order_quantity_valid": {
+          "name": "order_quantity_valid",
+          "value": "\"order_items\".\"quantity\" BETWEEN 1 AND 10000"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.orders": {
+      "name": "orders",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fingerprint": {
+          "name": "fingerprint",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount_minor": {
+          "name": "amount_minor",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "currency": {
+          "name": "currency",
+          "type": "varchar(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "shipping_address": {
+          "name": "shipping_address",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "orders_created_idx": {
+          "name": "orders_created_idx",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "orders_customer_key_unique": {
+          "name": "orders_customer_key_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "customer_id",
+            "idempotency_key"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "order_key_valid": {
+          "name": "order_key_valid",
+          "value": "\"orders\".\"idempotency_key\" ~ '^[A-Za-z0-9:_-]{1,255}$'"
+        },
+        "order_fingerprint_valid": {
+          "name": "order_fingerprint_valid",
+          "value": "\"orders\".\"fingerprint\" ~ '^[0-9a-f]{64}$'"
+        },
+        "order_amount_valid": {
+          "name": "order_amount_valid",
+          "value": "\"orders\".\"amount_minor\" BETWEEN 1 AND 9999999999"
+        },
+        "order_currency_valid": {
+          "name": "order_currency_valid",
+          "value": "\"orders\".\"currency\" IN ('USD', 'BDT')"
+        },
+        "order_address_object": {
+          "name": "order_address_object",
+          "value": "jsonb_typeof(\"orders\".\"shipping_address\") = 'object'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.saga_instances": {
+      "name": "saga_instances",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "order_id": {
+          "name": "order_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pending_message_id": {
+          "name": "pending_message_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "broker_attempts": {
+          "name": "broker_attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "current_operation": {
+          "name": "current_operation",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'CHARGE_PAYMENT'"
+        },
+        "inventory_finalized": {
+          "name": "inventory_finalized",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "last_result": {
+          "name": "last_result",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "current_step": {
+          "name": "current_step",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'PAYMENT'"
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'IN_PROGRESS'"
+        },
+        "completed_steps": {
+          "name": "completed_steps",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "compensated_steps": {
+          "name": "compensated_steps",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "payload": {
+          "name": "payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "next_attempt_at": {
+          "name": "next_attempt_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "lease_owner": {
+          "name": "lease_owner",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lease_expires_at": {
+          "name": "lease_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "saga_recovery_idx": {
+          "name": "saga_recovery_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "next_attempt_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "saga_stale_idx": {
+          "name": "saga_stale_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "updated_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "saga_instances_order_id_orders_id_fk": {
+          "name": "saga_instances_order_id_orders_id_fk",
+          "tableFrom": "saga_instances",
+          "tableTo": "orders",
+          "columnsFrom": [
+            "order_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "saga_instances_order_id_unique": {
+          "name": "saga_instances_order_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "order_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "saga_operation_valid": {
+          "name": "saga_operation_valid",
+          "value": "\"saga_instances\".\"current_operation\" IN ('CHARGE_PAYMENT', 'RESERVE_INVENTORY', 'CREATE_SHIPMENT', 'FINALIZE_INVENTORY')"
+        },
+        "saga_status_valid": {
+          "name": "saga_status_valid",
+          "value": "\"saga_instances\".\"status\" IN ('IN_PROGRESS', 'COMPENSATING', 'COMPLETED', 'FAILED')"
+        },
+        "saga_step_valid": {
+          "name": "saga_step_valid",
+          "value": "\"saga_instances\".\"current_step\" IN ('PAYMENT', 'INVENTORY', 'SHIPPING')"
+        },
+        "saga_completed_valid": {
+          "name": "saga_completed_valid",
+          "value": "jsonb_typeof(\"saga_instances\".\"completed_steps\") = 'array' AND \"saga_instances\".\"completed_steps\" <@ '[\"PAYMENT\",\"INVENTORY\",\"SHIPPING\"]'::jsonb"
+        },
+        "saga_compensated_valid": {
+          "name": "saga_compensated_valid",
+          "value": "jsonb_typeof(\"saga_instances\".\"compensated_steps\") = 'array' AND \"saga_instances\".\"compensated_steps\" <@ \"saga_instances\".\"completed_steps\""
+        },
+        "saga_payload_object": {
+          "name": "saga_payload_object",
+          "value": "jsonb_typeof(\"saga_instances\".\"payload\") = 'object'"
+        },
+        "saga_counters_valid": {
+          "name": "saga_counters_valid",
+          "value": "\"saga_instances\".\"version\" >= 0 AND \"saga_instances\".\"attempts\" >= 0"
+        },
+        "saga_lease_valid": {
+          "name": "saga_lease_valid",
+          "value": "(\"saga_instances\".\"lease_owner\" IS NULL) = (\"saga_instances\".\"lease_expires_at\" IS NULL)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.saga_transitions": {
+      "name": "saga_transitions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "saga_id": {
+          "name": "saga_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sequence": {
+          "name": "sequence",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "from_status": {
+          "name": "from_status",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "to_status": {
+          "name": "to_status",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "step": {
+          "name": "step",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "direction": {
+          "name": "direction",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "details": {
+          "name": "details",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "saga_transitions_saga_id_saga_instances_id_fk": {
+          "name": "saga_transitions_saga_id_saga_instances_id_fk",
+          "tableFrom": "saga_transitions",
+          "tableTo": "saga_instances",
+          "columnsFrom": [
+            "saga_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "transition_sequence_unique": {
+          "name": "transition_sequence_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "saga_id",
+            "sequence"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "transition_sequence_valid": {
+          "name": "transition_sequence_valid",
+          "value": "\"saga_transitions\".\"sequence\" > 0"
+        },
+        "transition_from_valid": {
+          "name": "transition_from_valid",
+          "value": "\"saga_transitions\".\"from_status\" IS NULL OR \"saga_transitions\".\"from_status\" IN ('IN_PROGRESS', 'COMPENSATING', 'COMPLETED', 'FAILED')"
+        },
+        "transition_to_valid": {
+          "name": "transition_to_valid",
+          "value": "\"saga_transitions\".\"to_status\" IN ('IN_PROGRESS', 'COMPENSATING', 'COMPLETED', 'FAILED')"
+        },
+        "transition_step_valid": {
+          "name": "transition_step_valid",
+          "value": "\"saga_transitions\".\"step\" IN ('PAYMENT', 'INVENTORY', 'SHIPPING')"
+        },
+        "transition_direction_valid": {
+          "name": "transition_direction_valid",
+          "value": "\"saga_transitions\".\"direction\" IN ('FORWARD', 'COMPENSATION')"
+        },
+        "transition_details_object": {
+          "name": "transition_details_object",
+          "value": "jsonb_typeof(\"saga_transitions\".\"details\") = 'object'"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

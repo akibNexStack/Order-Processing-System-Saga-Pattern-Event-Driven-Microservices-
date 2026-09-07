@@ -1,5 +1,9 @@
 # Part 6 — Persisted HTTP orchestration
 
+> The running services now use [Part 8 RabbitMQ transport](PART_8_MESSAGING.md).
+> This document describes the earlier HTTP implementation retained for regression tests.
+
+
 ## Start the complete forward flow
 
 From the repository root, with the service `.env` files configured:

@@ -1,3 +1,4 @@
+import type { ResultCommit } from '@saga/shared/messaging';
 import { eq, or } from 'drizzle-orm';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type pg from 'pg';
@@ -9,7 +10,7 @@ type Payment = typeof payments.$inferSelect;
 export class PaymentService {
   constructor(private readonly pool: pg.Pool, private readonly provider: PaymentProvider, private readonly providerTimeoutMs = 5000) {}
 
-  async execute(input: PaymentCommand): Promise<Result> {
+  async execute(input: PaymentCommand, commit?: ResultCommit): Promise<Result> {
     const parsed = input.operation === 'CHARGE_PAYMENT' ? ChargePaymentCommandSchema.parse(input) : RefundPaymentCommandSchema.parse(input);
     const command: PaymentCommand = { ...parsed, orderId: parsed.orderId.toLowerCase(), sagaId: parsed.sagaId.toLowerCase(),
       ...(parsed.operation === 'CHARGE_PAYMENT' ? { payload: { ...parsed.payload, customerId: parsed.payload.customerId.toLowerCase() } } : {}),
@@ -78,6 +79,7 @@ export class PaymentService {
           }
         }
         await tx.update(commandReceipts).set({ status: 'COMPLETED', result, updatedAt: new Date() }).where(eq(commandReceipts.idempotencyKey, command.idempotencyKey));
+        await commit?.(tx, result);
       });
       return result;
     } finally {

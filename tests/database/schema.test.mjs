@@ -43,7 +43,7 @@ for (const [service, prefix, tables, operation] of fixtures) {
         await migrate(db, { migrationsFolder });
         assert.deepEqual((await pool.query('SELECT count(*)::int AS count FROM drizzle.__drizzle_migrations')).rows, before.rows);
         const actual = await pool.query("SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename");
-        assert.deepEqual(actual.rows.map(r => r.tablename), tables);
+        assert.deepEqual(actual.rows.map(r => r.tablename), [...tables, 'message_inbox', 'message_outbox'].sort());
       });
 
       if (operation) {

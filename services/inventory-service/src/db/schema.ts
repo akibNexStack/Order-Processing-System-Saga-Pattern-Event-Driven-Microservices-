@@ -64,3 +64,5 @@ export const commandReceipts = pgTable('command_receipts', {
   index('receipts_order_idx').on(t.orderId),
   index('receipts_recovery_idx').on(t.status, t.updatedAt),
 ]);
+
+export { messageInbox, messageOutbox } from '@saga/shared/messaging';

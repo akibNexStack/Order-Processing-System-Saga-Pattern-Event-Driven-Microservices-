@@ -36,6 +36,8 @@ export const orderItems = pgTable('order_items', {
 export const sagaInstances = pgTable('saga_instances', {
   id: uuid('id').primaryKey().defaultRandom(),
   orderId: uuid('order_id').notNull().unique().references(() => orders.id),
+  pendingMessageId: uuid('pending_message_id'),
+  brokerAttempts: integer('broker_attempts').notNull().default(0),
   currentOperation: varchar('current_operation', { length: 50 }).notNull().default('CHARGE_PAYMENT'),
   inventoryFinalized: boolean('inventory_finalized').notNull().default(false),
   lastResult: jsonb('last_result'),
@@ -83,3 +85,5 @@ export const sagaTransitions = pgTable('saga_transitions', {
   check('transition_direction_valid', sql`${t.direction} IN ('FORWARD', 'COMPENSATION')`),
   check('transition_details_object', sql`jsonb_typeof(${t.details}) = 'object'`),
 ]);
+
+export { messageInbox, messageOutbox } from '@saga/shared/messaging';

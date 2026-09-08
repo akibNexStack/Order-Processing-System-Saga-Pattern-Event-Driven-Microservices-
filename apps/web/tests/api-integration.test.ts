@@ -7,6 +7,12 @@ import { setTimeout as delay } from "node:timers/promises";
 import { makeStore } from "../src/lib/store";
 import { sagaApi } from "../src/lib/api/api";
 import { chromium, expect } from "@playwright/test";
+import {
+  fillCheckout,
+  orderReply,
+  orderId,
+  payload,
+} from "./fixtures/checkout";
 
 test(
   "production Next route and RTK Query integrate with isolated HTTP backends",
@@ -15,9 +21,12 @@ test(
     let mode = "normal";
     let calls = 0;
     let received = "";
+    const orderRequests: string[] = [];
     const backend = createServer(async (req, res) => {
       calls++;
-      for await (const chunk of req) received += chunk.toString();
+      let requestBody = "";
+      for await (const chunk of req) requestBody += chunk.toString();
+      received = requestBody;
       res.setHeader("Content-Type", "application/json");
       res.setHeader("Retry-After", "2");
       if (mode === "timeout") {
@@ -30,6 +39,23 @@ test(
       }
       if (mode === "invalid") {
         res.end(JSON.stringify({ invalid: true }));
+        return;
+      }
+      if (req.url === "/orders" && req.method === "POST") {
+        orderRequests.push(requestBody);
+        if (orderRequests.length === 1) {
+          res.statusCode = 503;
+          res.setHeader("Retry-After", "0");
+          res.end(
+            JSON.stringify({
+              error: "Saved but reply unavailable; retry original key",
+            }),
+          );
+        } else {
+          res.statusCode = 202;
+          res.setHeader("Location", `/orders/${orderId}`);
+          res.end(JSON.stringify(orderReply(JSON.parse(requestBody))));
+        }
         return;
       }
       if (req.url === "/ready") {
@@ -202,6 +228,25 @@ test(
       await expect(
         orderCard.getByText("Order recovery", { exact: true }),
       ).toBeVisible();
+      // Real browser -> RTK mutation -> production Next POST proxy -> HTTP fixture.
+      await page.goto("http://127.0.0.1:3105/orders/new");
+      await fillCheckout(page);
+      await page
+        .getByRole("button", { name: "Create order", exact: true })
+        .click();
+      await expect(page.getByRole("main").getByRole("alert")).toContainText(
+        "Order service unavailable (503)",
+      );
+      await page
+        .getByRole("button", { name: "Retry original request" })
+        .click();
+      await expect(page).toHaveURL(`http://127.0.0.1:3105/orders/${orderId}`);
+      await expect(page.getByRole("status")).toContainText(
+        "Processing is not complete",
+      );
+      assert.equal(orderRequests.length, 2);
+      assert.equal(orderRequests[0], orderRequests[1]);
+      assert.deepEqual(JSON.parse(orderRequests[0]).payload, payload);
     } finally {
       await browser.close();
     }

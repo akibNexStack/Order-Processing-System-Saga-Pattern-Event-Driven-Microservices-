@@ -48,9 +48,9 @@ export default function HomePage() {
         }
       />
       <PreviewNotice>
-        You can prepare and validate a demo checkout, but order submission is
-        not connected yet. Live health checks are available on the Services
-        screen.
+        Checkout can now submit orders to the configured backend. Live health
+        checks are available on the Services screen. Order lookup is coming in
+        Step 8.
       </PreviewNotice>
       <div className="area-grid">
         {areas.map((area) => (

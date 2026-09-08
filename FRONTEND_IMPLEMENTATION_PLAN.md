@@ -89,6 +89,10 @@ RTK Query is used for typed queries/mutations and server-data caching, as reques
 
 ## Step 7 — Implement Order Submission and Duplicate Prevention
 
+**Status:** Implemented: RTK Query submission, a synchronous checkout lock, secure per-checkout keys, immutable same-key retries, response correlation, truthful status feedback, recent-order IDs, and navigation to a minimal `/orders/[orderId]` receipt page. Full order details and polling remain Steps 8–9. Retry state is memory-only; reload/close is not a safe retry mechanism. See [submission documentation](apps/web/README.md#step-7--submission-and-duplicate-prevention).
+
+**Verification:** Workspace typechecks, the final production build, and all 118 checks passed across suites: 76 desktop/mobile browser checks, 26 state/provider checks, 10 API checks, 5 component checks, and 1 isolated real-proxy integration check. After screenshot review, receipt spacing was corrected; all 8 affected desktop/mobile receipt checks and the proxy integration check passed again against the final build. Screenshots and automated accessibility checks were reviewed. Real PostgreSQL/RabbitMQ/provider execution was not tested.
+
 - Generate an idempotency key for each new checkout.
 - Integrate `POST /orders`.
 - Prevent duplicate clicks while submission is in progress.

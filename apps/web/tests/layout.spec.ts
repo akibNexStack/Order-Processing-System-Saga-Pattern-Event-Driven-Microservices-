@@ -35,7 +35,7 @@ for (const target of pages) {
       ).toBeVisible();
     } else if (target.path === "/orders/new")
       await expect(
-        page.getByRole("main").getByText(/Demo checkout · Validation only/),
+        page.getByRole("main").getByText(/Demo checkout · Live submission/),
       ).toBeVisible();
     else await expect(page.getByText("Workspace preview.")).toBeVisible();
     if (isMobile)
@@ -89,7 +89,7 @@ test("navigation and browser history keep the active item accurate", async ({
   ).toHaveAttribute("aria-current", "page");
 });
 
-test("checkout validation is editable but submission stays disabled and service checks are read-only", async ({
+test("checkout is editable and service checks are read-only", async ({
   page,
 }) => {
   const writes: string[] = [];
@@ -112,7 +112,7 @@ test("checkout validation is editable but submission stays disabled and service 
     ).toBeEnabled();
   await expect(
     page.getByRole("button", { name: "Create order" }),
-  ).toBeDisabled();
+  ).toBeEnabled();
   await page.goto("/orders");
   await expect(page.getByLabel("Order ID", { exact: true })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Find order" })).toBeDisabled();

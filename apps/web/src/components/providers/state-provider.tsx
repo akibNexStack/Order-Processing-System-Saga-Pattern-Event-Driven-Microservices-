@@ -48,6 +48,9 @@ function useStores() {
 export function useCheckoutStore<T>(selector: (state: CheckoutState) => T) {
   return useStore(useStores().checkout, selector);
 }
+export function useCheckoutStoreApi() {
+  return useStores().checkout;
+}
 export function useUiStore<T>(selector: (state: UiState) => T) {
   return useStore(useStores().ui, selector);
 }

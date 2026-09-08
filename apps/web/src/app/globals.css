@@ -993,3 +993,12 @@ h2 {
     grid-template-columns: 1fr;
   }
 }
+.submission-key {
+  overflow-wrap: anywhere;
+}
+.submission-receipt {
+  display: grid;
+  gap: 16px;
+  justify-items: start;
+  line-height: 1.6;
+}

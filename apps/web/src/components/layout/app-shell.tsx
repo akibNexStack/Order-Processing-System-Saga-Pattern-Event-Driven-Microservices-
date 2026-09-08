@@ -169,8 +169,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             {pathname === "/services"
               ? "Live service checks · Read-only"
               : pathname === "/orders/new"
-                ? "Demo checkout · Validation only"
-                : "Layout preview · No live data"}
+                ? "Demo checkout · Live submission"
+                : pathname.startsWith("/orders/")
+                  ? "Submission receipt · Not live status"
+                  : "Layout preview · No live data"}
           </span>
         </footer>
       </div>

@@ -1,6 +1,6 @@
 # Saga frontend
 
-Next.js App Router workspace for the order-processing microservices. Steps 1–2 provide the application foundation, responsive shell, navigation, and shared UI components. Step 3 adds the backend proxy and RTK Query integration; Step 4 adds Zustand state, persistence, and hydration. Step 5 connects the live Services screen, and Step 6 adds the editable checkout form and local validation. Order submission remains in Step 7.
+Next.js App Router workspace for the order-processing microservices. Steps 1–2 provide the application foundation, responsive shell, navigation, and shared UI components. Step 3 adds the backend proxy and RTK Query integration; Step 4 adds Zustand state, persistence, and hydration. Step 5 connects the live Services screen, Step 6 adds checkout validation, and Step 7 connects order submission with duplicate prevention and explicit same-key retries.
 
 Run commands from the repository root after installing dependencies with `npm ci`:
 
@@ -41,14 +41,15 @@ The frontend has its own TypeScript configuration because Next.js uses bundler m
 | Route | Screen |
 | --- | --- |
 | `/` | Overview and workspace shortcuts |
-| `/orders/new` | Demo checkout form, local validation, and order summary |
+| `/orders/new` | Demo checkout, local validation, live submission, and safe retry |
+| `/orders/[orderId]` | Submission receipt; full details and live lookup arrive in Step 8 |
 | `/orders` | Order lookup and recent orders layout preview |
 | `/attention` | Intervention queue layout preview |
 | `/services` | Live health/readiness, dependency results, timestamps, and refresh |
 
 All routes share the desktop sidebar, header, and footer. Below 1024px, navigation opens in a native modal drawer with keyboard focus containment, Escape/backdrop dismissal, focus restoration, and scroll locking. Selecting a route or resizing to desktop closes the drawer. A skip link provides direct keyboard access to the main content.
 
-Checkout fields are editable as of Step 6, but Create order remains disabled; Validate order performs local checks only. Order search is still a disabled preview. The Services screen is live as of Step 5 and makes read-only health/readiness requests; it does not submit orders or modify services.
+Checkout fields are editable as of Step 6. As of Step 7, Create order submits to the configured backend; Validate order (including Enter in a field) performs local checks only. Order search is still a disabled preview. The Services screen is live as of Step 5 and makes read-only health/readiness requests; it does not submit orders or modify services.
 
 Reusable primitives live in `src/components/ui`: buttons and links, labeled inputs, cards, status badges, icons, empty states, loading indicators, skeletons, and retryable error states. `src/components/layout` contains navigation, the application shell, page headings, and preview notices. App Router loading, error, and not-found files keep navigation available during page-level transitions and failures.
 
@@ -181,11 +182,11 @@ addRecentOrder(orderId);
 
 - `updateDraft(patch)` copies the input and succeeds only while `submission` is `idle`. Drafts may be incomplete; `beginSubmission()` validates the complete request using the shared contract.
 - `beginSubmission()` generates a cryptographically random key, freezes a validated request snapshot, changes the phase to `submitting`, and returns a separate request copy. It returns `null` for invalid input, unavailable secure key generation, or an already-locked checkout. It does **not** send a request.
-- `markUncertain(key, message)` records an unknown outcome after a timeout/network failure. Draft changes and reset remain blocked. `retrySubmission()` returns the exact original normalized payload/key and moves back to `submitting`; it never generates a replacement key.
+- `markUncertain(key, message, retryAt?)` records an unknown outcome after a timeout/network failure. Draft changes and reset remain blocked. After any retry deadline, `retrySubmission()` returns the exact original normalized payload/key and moves back to `submitting`; it never generates a replacement key.
 - `markSettled(key)` is for a definitive submission response or confirmed reconciliation. A known order accepted with 202 can settle the submission even while its saga continues running. Do not call it merely because a request timed out or returned an ambiguous infrastructure failure.
-- `resetCheckout()` clears draft, key, request, and error only when idle/settled. A subsequent submission gets a new key. Callbacks with a different key are ignored. These are lifecycle primitives for Step 7, not live checkout wiring.
+- `resetCheckout()` clears draft, key, request, error, receipt, and retry deadline only when idle/settled. A subsequent submission gets a new key. Callbacks with a different key are ignored. These primitives are connected to live checkout in Step 7.
 
-Shipping addresses, customer IDs, item selections, request snapshots, keys, and submission errors are **never written to localStorage/sessionStorage**. They survive client-side navigation but not a full reload, tab close, or provider unmount. Do not reload an unresolved checkout expecting an automatic retry: this step does not promise duplicate prevention across reloads. Reconcile existing orders before starting a replacement checkout. The Step 7 UI must explain that limitation when live submission is introduced.
+Shipping addresses, customer IDs, item selections, request snapshots, keys, and submission errors are **never written to localStorage/sessionStorage**. They survive client-side navigation but not a full reload, tab close, or provider unmount. Do not reload an unresolved checkout expecting an automatic retry: this step does not promise duplicate prevention across reloads. Reconcile existing orders before starting a replacement checkout. The Step 7 UI explains this limitation and requests a browser reload/close warning while an outcome is unresolved.
 
 ### Hydration and persistence contract
 
@@ -229,9 +230,36 @@ Browser coverage in `tests/services.spec.ts` includes initial loading, timestamp
 
 Verified on 2026-09-08: workspace typechecks, production build, 42 browser checks, 14 state/provider checks, 10 API checks, 5 component checks, and 1 isolated integration check passed (72 total). The initial integration run hit its old 100 ms test deadline during the eight-request burst; after raising only that fixture deadline to 1000 ms, the integration rerun passed, including explicit timeout handling. Production timeout defaults were not changed. Desktop outage and mobile healthy screenshots were reviewed, and formatting/diff checks passed. No real order/payment/inventory/shipping records were changed by verification.
 
+## Step 7 — Submission and duplicate prevention
+
+Open `/orders/new`, fill the demo checkout, and select **Create order**. This sends `POST /api/orders` through RTK Query and the Next proxy to the configured order service. Unlike **Validate order**, it can trigger backend payment, inventory, and shipping work. Run the backend prerequisites described above and configure the frontend's server-only service URLs for live use. Never point a demo checkout at production services unintentionally.
+
+The store generates a secure UUID idempotency key on the first valid submission, synchronously locks the draft, and retains a frozen request snapshot. Double clicks cannot start a second request. There are no automatic mutation retries. **Retry original request** is available only after an uncertain outcome and uses the identical payload/key. Edits, resets, and new submissions are blocked while submitting or uncertain. A valid `Retry-After` header delays the explicit retry, enforced both in the UI and the store.
+
+| Response | UI behavior |
+| --- | --- |
+| `200` / `201` with a correlated completed order | Show completion receipt and navigate to its order ID. |
+| `202` with a correlated nonterminal order | Show accepted, still processing—not a completed purchase. |
+| `422` with a correlated failed order | Record the saved order ID and show saga failure, not success. |
+| `409` with a JSON error | Show idempotency conflict; no same-key retry or invented order ID. Verify the existing order before deliberately starting another checkout. |
+| `400` with a JSON error | Show request rejection; start a new checkout to correct it. |
+| `503`, network/timeout, malformed/unrelated replies, other failures | Treat outcome as uncertain: the backend may already have saved the order. Keep the request locked and offer same-key retry. |
+
+Responses must pass the shared HTTP schema and match the request's customer, key, amount, currency, address, products, and quantities. Order/saga/item IDs and HTTP status must agree. Navigation is constructed from the validated UUID; untrusted `Location` headers are not followed. A bare/malformed `422` does not prove there is a failed order and is kept uncertain.
+
+Successful correlation records the order ID in the browser's existing recent-history store, respecting opt-out and storage-unavailable behavior. Only IDs/preferences persist; drafts, delivery details, request keys, and receipts remain in memory. Completion updates the store even when the checkout page unmounts. It does not redirect users who navigated elsewhere; returning to checkout shows a **View submitted order** link. Settled checkouts stay locked until the user chooses **Start new checkout**, which clears their data and uses a new key on the next submission.
+
+`/orders/[orderId]` is a minimal submission-result destination, not the Step 8 details implementation. It displays a matching in-memory receipt and clearly identifies it as a snapshot. After reload/direct entry it does not assert the order exists or invent its current status. Full lookup/details and automatic polling remain Steps 8–9.
+
+**Lifetime limitation:** duplicate prevention is scoped to this tab's current in-memory checkout. A root-mounted `beforeunload` handler requests a browser warning while submitting/uncertain, including after client navigation, but browsers cannot guarantee this warning on close/crash. Reloading, closing, or opening another tab can lose the retry key and is not a safe retry mechanism. Keep the tab open until the outcome is known; if it is lost, reconcile with the backend before placing another order. No sensitive request payload is persisted to work around this limitation.
+
+Tests cover state locking, same-key byte-for-byte retries, receipt correlation, `200/201/202/400/409/422/503`, timeouts, malformed responses, Retry-After, browser navigation, history opt-out, reload behavior, and desktop/mobile accessibility. The isolated API integration test exercises the actual browser → RTK mutation → production Next proxy → fixture backend path, including a `503` followed by an identical retry. It does not charge real providers or assert real PostgreSQL/RabbitMQ availability.
+
+Verification on 2026-09-08: workspace typechecks, production build, and 118 checks passed (76 browser, 26 state/provider, 10 API, 5 component, 1 real-proxy integration). An initial integration assertion also matched Next's route announcer; alert selectors were scoped to main content and the check passed. The full 76-test browser run passed. Screenshot review then identified missing receipt-card spacing; it was corrected and all 8 affected desktop/mobile receipt tests passed again, including explicit padding and accessibility assertions. The real-proxy integration also passed against the final build. One final-build attempt was terminated during tracing; the subsequent build completed successfully. Desktop/mobile receipt and uncertain-retry screenshots were inspected. These results cover the frontend and isolated integration, not a real-provider purchase or guaranteed operation across tab close/crash.
+
 ## Step 6 — Checkout form and local validation
 
-Run `npm run dev:web` and open `http://localhost:3004/orders/new`. This step needs no running backend: **Validate order** validates locally; **Create order** is intentionally disabled until Step 7. Entering a form, pressing Enter, validating, and clearing the draft do not send orders, charge payments, or reserve inventory. Validation does not generate an idempotency key or put the checkout into a submitting state.
+Run `npm run dev:web` and open `http://localhost:3004/orders/new`. **Validate order** needs no running backend. At the Step 6 milestone, Create order was disabled; Step 7 now enables live submission as described below. Entering a form, pressing Enter, validating, and clearing the draft do not send orders, charge payments, or reserve inventory. Validation does not generate an idempotency key or put the checkout into a submitting state.
 
 The three choices match `services/inventory-service/src/db/seed.ts`: Demo Keyboard, Demo Mouse, and Demo Monitor. Displayed seed stock (100, 50, and 0 respectively) is historical initialization data, not live availability. Monitor remains selectable for the insufficient-stock demo. The browser does not import backend/database modules, and a test detects catalog drift from the seed file. There is no catalog-price API, so the amount is explicitly a manually entered **demo total**, not a product-derived price or quote.
 
@@ -245,7 +273,7 @@ The three choices match `services/inventory-service/src/db/seed.ts`: Demo Keyboa
 
 Errors are linked to their fields and the first invalid control receives focus after validation. After an unsuccessful validation, errors update as fields are corrected. Editing any value clears the previous success announcement. The summary shows selected products/quantities, the demo total, exact minor units, and entered delivery details without inventing totals or stock guarantees.
 
-The pure helpers in `src/lib/checkout/form.ts` validate the payload and can build a complete shared-contract request when Step 7 supplies an idempotency key. The checkout store's existing submission preparation uses the same normalization, so optional blank address fields cannot pass form validation and later fail solely because of different normalization.
+The pure helpers in `src/lib/checkout/form.ts` validate the payload and build a complete shared-contract request when submission supplies an idempotency key. The checkout store uses the same normalization, so optional blank address fields cannot pass form validation and later fail solely because of different normalization.
 
 Drafts, including raw amount text and private delivery fields, survive client-side navigation only. They are not written to localStorage or sessionStorage, and a full reload clears them. **Clear draft** resets the draft, amount text, and local feedback. Existing submission locks still protect an in-flight or uncertain checkout from editing.
 

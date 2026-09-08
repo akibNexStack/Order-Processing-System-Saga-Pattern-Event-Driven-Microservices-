@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { ApiProvider } from "@/components/providers/api-provider";
 import { StateProvider } from "@/components/providers/state-provider";
+import { SubmissionGuard } from "@/components/checkout/submission-guard";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -18,6 +19,7 @@ export default function RootLayout({
       <body>
         <ApiProvider>
           <StateProvider>
+            <SubmissionGuard />
             <AppShell>{children}</AppShell>
           </StateProvider>
         </ApiProvider>

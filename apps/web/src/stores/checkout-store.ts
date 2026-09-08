@@ -13,6 +13,11 @@ export type CheckoutDraft = Omit<OrderPayload, "amountMinor"> & {
   amountMinor: number | null;
 };
 export type SubmissionPhase = "idle" | "submitting" | "uncertain" | "settled";
+export interface SubmissionReceipt {
+  orderId: string | null;
+  status: number;
+  message: string;
+}
 export interface CheckoutState {
   draft: CheckoutDraft;
   amountInput: string;
@@ -21,11 +26,13 @@ export interface CheckoutState {
   submission: SubmissionPhase;
   request: CreateOrderRequest | null;
   error: string | null;
+  receipt: SubmissionReceipt | null;
+  retryAt: number;
   updateDraft: (patch: Partial<CheckoutDraft>) => boolean;
   beginSubmission: () => CreateOrderRequest | null;
   retrySubmission: () => CreateOrderRequest | null;
-  markUncertain: (key: string, message: string) => boolean;
-  markSettled: (key: string) => boolean;
+  markUncertain: (key: string, message: string, retryAt?: number) => boolean;
+  markSettled: (key: string, receipt?: SubmissionReceipt) => boolean;
   resetCheckout: () => boolean;
 }
 
@@ -63,6 +70,8 @@ export function createCheckoutStore(
     submission: "idle",
     request: null,
     error: null,
+    receipt: null,
+    retryAt: 0,
     setAmountInput(amountInput) {
       if (get().submission !== "idle") return false;
       set({
@@ -118,25 +127,31 @@ export function createCheckoutStore(
     },
     retrySubmission() {
       const { submission, request } = get();
-      if (submission !== "uncertain" || !request) return null;
+      if (submission !== "uncertain" || !request || Date.now() < get().retryAt)
+        return null;
       set({ submission: "submitting", error: null });
       return structuredClone(request);
     },
-    markUncertain(key, message) {
+    markUncertain(key, message, retryAt = 0) {
       if (get().idempotencyKey !== key || get().submission !== "submitting")
         return false;
-      set({ submission: "uncertain", error: message });
+      set({ submission: "uncertain", error: message, retryAt });
       return true;
     },
     // "Settled" means the submission outcome is known, not that the saga completed.
     // Call only after a definitive response/reconciliation, never just on timeout.
-    markSettled(key) {
+    markSettled(key, receipt) {
       if (
         get().idempotencyKey !== key ||
         !["submitting", "uncertain"].includes(get().submission)
       )
         return false;
-      set({ submission: "settled", error: null });
+      set({
+        submission: "settled",
+        error: null,
+        receipt: receipt ?? null,
+        retryAt: 0,
+      });
       return true;
     },
     resetCheckout() {
@@ -148,6 +163,8 @@ export function createCheckoutStore(
         submission: "idle",
         request: null,
         error: null,
+        receipt: null,
+        retryAt: 0,
       });
       return true;
     },

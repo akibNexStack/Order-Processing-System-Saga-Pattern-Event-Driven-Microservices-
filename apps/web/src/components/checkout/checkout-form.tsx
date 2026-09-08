@@ -1,8 +1,15 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import type { ShippingAddress } from "@saga/shared/contracts";
-import { useCheckoutStore } from "@/components/providers/state-provider";
+import {
+  useCheckoutStore,
+  useCheckoutStoreApi,
+  useUiStore,
+} from "@/components/providers/state-provider";
+import { useCreateOrderMutation } from "@/lib/api/api";
+import { submitCheckout } from "@/lib/checkout/submission";
 import {
   demoProducts,
   formatMinor,
@@ -11,7 +18,7 @@ import {
 import { PageHeading } from "@/components/layout/page-heading";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 
 const addressFields: {
   key: keyof ShippingAddress;
@@ -76,6 +83,29 @@ export function CheckoutForm() {
   const setAmount = useCheckoutStore((state) => state.setAmountInput);
   const reset = useCheckoutStore((state) => state.resetCheckout);
   const phase = useCheckoutStore((state) => state.submission);
+  const submissionError = useCheckoutStore((state) => state.error);
+  const receipt = useCheckoutStore((state) => state.receipt);
+  const key = useCheckoutStore((state) => state.idempotencyKey);
+  const retryAt = useCheckoutStore((state) => state.retryAt);
+  const checkout = useCheckoutStoreApi();
+  const remember = useUiStore((state) => state.addRecentOrder);
+  const hydration = useUiStore((state) => state.hydration);
+  const [createOrder] = useCreateOrderMutation();
+  const router = useRouter();
+  const mounted = useRef(false);
+  const [now, setNow] = useState(0);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (phase !== "uncertain") return;
+    setNow(Date.now());
+    const timer = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(timer);
+  }, [phase, retryAt]);
   const formRef = useRef<HTMLFormElement>(null);
   const [attempted, setAttempted] = useState(false);
   const [validated, setValidated] = useState(false);
@@ -97,25 +127,73 @@ export function CheckoutForm() {
           ?.focus(),
       );
   }
+  async function submit(retry = false) {
+    if (hydration === "pending") return;
+    setAttempted(true);
+    setValidated(false);
+    if (!retry && !validation.parsed.success) {
+      requestAnimationFrame(() =>
+        formRef.current
+          ?.querySelector<HTMLElement>('[aria-invalid="true"]')
+          ?.focus(),
+      );
+      return;
+    }
+    const result = await submitCheckout(
+      checkout,
+      (request) => createOrder(request).unwrap(),
+      remember,
+      retry,
+    );
+    if (
+      result?.orderId &&
+      mounted.current &&
+      window.location.pathname === "/orders/new"
+    ) {
+      router.push(`/orders/${result.orderId}`);
+    }
+  }
   return (
     <>
       <PageHeading
         eyebrow="CHECKOUT"
         title="Create order"
-        description="Choose demo products, enter delivery details, and validate your order."
+        description="Choose demo products, enter delivery details, and submit your order."
       />
       <p className="checkout-notice">
-        Demo checkout · Validation only. No order is sent, charged, or reserved.
-        Live submission is added in Step 7. Drafts stay in memory during
-        navigation and are cleared by a full reload.
+        Demo checkout · Live submission. Create order sends a real request to
+        the configured backend, which may charge, reserve inventory, and arrange
+        shipping. Validate order checks locally only. Drafts and retry keys stay
+        in memory in this tab and are lost on reload or close. Keep this tab
+        open until the submission outcome is known.
       </p>
       <div className="content-columns checkout-columns">
         <Card className="checkout-card">
           <form ref={formRef} noValidate onSubmit={validate}>
-            {locked && (
-              <p role="alert">
-                This checkout is locked because a submission has already
-                started. Resolve its outcome before starting another checkout.
+            {phase === "submitting" && (
+              <p role="status">
+                Submitting order… Please wait. The original request is locked to
+                prevent duplicate submissions.
+              </p>
+            )}
+            {submissionError && (
+              <p role="alert" className="field-error">
+                {submissionError}
+              </p>
+            )}
+            {receipt && (
+              <div role={receipt.status >= 400 ? "alert" : "status"}>
+                <p>{receipt.message}</p>
+                {receipt.orderId && (
+                  <ButtonLink href={`/orders/${receipt.orderId}`}>
+                    View submitted order
+                  </ButtonLink>
+                )}
+              </div>
+            )}
+            {key && (
+              <p className="field-hint submission-key">
+                Idempotency key: <code>{key}</code>
               </p>
             )}
             {attempted && !validation.parsed.success && (
@@ -317,7 +395,7 @@ export function CheckoutForm() {
               </Button>
               <Button
                 variant="secondary"
-                disabled={locked}
+                disabled={phase === "submitting" || phase === "uncertain"}
                 onClick={() => {
                   if (reset()) {
                     setAttempted(false);
@@ -325,15 +403,30 @@ export function CheckoutForm() {
                   }
                 }}
               >
-                Clear draft
+                {phase === "settled" ? "Start new checkout" : "Clear draft"}
               </Button>
-              <Button disabled aria-describedby="submission-notice">
+              <Button
+                disabled={locked || hydration === "pending"}
+                onClick={() => void submit()}
+                aria-describedby="submission-notice"
+              >
                 Create order
               </Button>
+              {phase === "uncertain" && (
+                <Button
+                  onClick={() => void submit(true)}
+                  disabled={now < retryAt}
+                >
+                  Retry original request
+                </Button>
+              )}
             </div>
             <p id="submission-notice" className="field-hint">
-              Create order is disabled until live submission is implemented in
-              Step 7.
+              Create order submits to the backend. Pressing Enter in a field
+              only validates.
+              {phase === "uncertain" &&
+                now < retryAt &&
+                ` Retry available in ${Math.ceil((retryAt - now) / 1000)} seconds.`}
             </p>
             {validated && validation.parsed.success && (
               <p role="status" className="checkout-valid">

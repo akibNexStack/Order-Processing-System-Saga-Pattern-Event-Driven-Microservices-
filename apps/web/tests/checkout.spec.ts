@@ -63,7 +63,7 @@ test("valid checkout has exact summary, shared validation feedback and no order 
   ).toHaveValue("BD");
   await expect(
     page.getByRole("button", { name: "Create order", exact: true }),
-  ).toBeDisabled();
+  ).toBeEnabled();
   await page
     .getByRole("textbox", { name: "Amount", exact: true })
     .press("Enter");

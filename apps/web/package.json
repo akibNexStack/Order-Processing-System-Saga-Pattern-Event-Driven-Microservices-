@@ -7,9 +7,13 @@
     "dev": "next dev --port 3004",
     "build": "next build --webpack",
     "start": "next start --port 3004",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "test:e2e": "playwright test",
+    "test:ui": "tsx --test tests/ui.test.tsx"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^26.5.0",
     "@types/react": "^19.2.18",

@@ -4,6 +4,8 @@ node_modules/
 # Build output and TypeScript incremental caches
 dist/
 .next/
+playwright-report/
+test-results/
 out/
 *.tsbuildinfo
 

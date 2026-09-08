@@ -6,7 +6,7 @@ The implementation is divided into 12 steps. The first version will use the exis
 
 ## Step 1 — Set Up the Next.js Project
 
-**Status:** Implemented in `apps/web`. See [frontend setup instructions](apps/web/README.md). Workspace typechecks and the Webpack production build passed; the development page returned HTTP 200 on port 3004. Later steps remain planned.
+**Status:** Implemented in `apps/web`. See [frontend setup instructions](apps/web/README.md). Workspace typechecks and the Webpack production build passed; the development page returned HTTP 200 on port 3004.
 
 - Create the Next.js App Router application with TypeScript in `apps/web`.
 - Add the frontend to the root npm workspace configuration.
@@ -17,6 +17,8 @@ The implementation is divided into 12 steps. The first version will use the exis
 **Completion outcome:** The frontend runs at `http://localhost:3004`.
 
 ## Step 2 — Build the Application Layout and Navigation
+
+**Status:** Implemented and verified. All five routes share a responsive sidebar, header, main content area, and mobile navigation drawer. Reusable UI primitives and loading, error, and not-found states are included. Workspace typechecks, the production build, 5 component checks, and 22 desktop/mobile Chromium browser checks passed. The browser checks cover navigation, focus handling, responsive overflow, and automated accessibility scans. See [verification details](apps/web/README.md#verification-result). Steps 3–12 remain planned; the screens explicitly show that live data and order actions are not connected yet.
 
 - Create the sidebar, header, and main content layout.
 - Add navigation for Overview, Create Order, Orders, Attention, and Services.

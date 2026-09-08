@@ -269,10 +269,10 @@ npm run db:seed
 npm run dev
 ```
 
-The Next.js frontend foundation is in `apps/web` and runs on **3004**:
+The Next.js frontend is in `apps/web` and runs on **3004**:
 
 ```bash
-# Frontend only (the starter page does not require backend infrastructure)
+# Frontend only (the layout preview does not require backend infrastructure)
 npm run dev:web
 
 # Alternatively, start the frontend and all four backend services together
@@ -281,7 +281,10 @@ npm run dev:all
 
 Run only one of these development commands at a time. See the
 [frontend setup guide](apps/web/README.md) for build and production commands.
-Order screens and API integration are planned in later frontend steps.
+The responsive layout includes Overview, Create Order, Orders, Attention, and
+Services. These are clearly labeled previews; API integration is planned in later
+frontend steps. Run `npm run test:web` for the frontend component and browser suite
+after installing Chromium as described in the frontend guide.
 
 The orchestrator listens on port **3000**, payment on **3001**, inventory on **3002**,
 and shipping on **3003**. Each exposes `GET /health` for liveness and `GET /ready` for

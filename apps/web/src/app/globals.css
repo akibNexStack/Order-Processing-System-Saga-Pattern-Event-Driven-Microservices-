@@ -706,6 +706,59 @@ h2 {
   margin-top: 8px;
   font-size: 12px;
 }
+.service-card-top {
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.service-card-top h2 {
+  margin: 0;
+}
+.service-check-panel {
+  border-top: 1px solid var(--line);
+  margin-top: 22px;
+  padding-top: 18px;
+}
+.service-check-panel h3 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: baseline;
+  font-size: 14px;
+  margin: 0 0 12px;
+}
+.service-check-panel code {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+.dependency-checks {
+  margin: 16px 0;
+  font-size: 13px;
+}
+.dependency-checks > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding-block: 5px;
+}
+.dependency-checks dd {
+  margin: 0;
+  font-weight: 600;
+}
+.service-check-panel .check-time {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 12px;
+}
+.service-check-panel .service-check-error {
+  font-size: 13px;
+  margin-top: 12px;
+}
+.service-status-note {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
 .loading-state {
   display: flex;
   align-items: center;

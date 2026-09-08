@@ -186,6 +186,12 @@ export const serviceNames = [
   "shipping",
 ] as const;
 export type ServiceName = (typeof serviceNames)[number];
+export const serviceIdentities: Record<ServiceName, string> = {
+  orders: "order-orchestrator",
+  payment: "payment-service",
+  inventory: "inventory-service",
+  shipping: "shipping-service",
+};
 export const HealthSchema = z.looseObject({
   service: z.enum([
     "order-orchestrator",
@@ -195,17 +201,27 @@ export const HealthSchema = z.looseObject({
   ]),
   status: z.literal("ok"),
 });
-export const ReadinessSchema = z.looseObject({
-  status: z.enum(["ready", "not_ready"]),
-  checks: z.union([
-    z.looseObject({
-      database: z.boolean(),
-      broker: z.boolean(),
-      recovery: z.boolean().optional(),
-    }),
-    z.object({ configured: z.literal(false) }),
-  ]),
-});
+export const ReadinessSchema = z
+  .looseObject({
+    status: z.enum(["ready", "not_ready"]),
+    checks: z.union([
+      z.looseObject({
+        database: z.boolean(),
+        broker: z.boolean(),
+        recovery: z.boolean().optional(),
+      }),
+      z.object({ configured: z.literal(false) }),
+    ]),
+  })
+  .refine(
+    (value) =>
+      value.status !== "ready" ||
+      ("database" in value.checks &&
+        value.checks.database &&
+        value.checks.broker &&
+        value.checks.recovery !== false),
+    "Ready responses must not contain failed dependency checks",
+  );
 
 export type OrderState = z.infer<typeof OrderStateSchema>;
 export type OrderHistory = z.infer<typeof HistorySchema>;

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
+import { useUiStore } from "@/components/providers/state-provider";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { currentNavigation, navigation } from "./navigation";
@@ -80,23 +81,34 @@ export function AppShell({ children }: { children: ReactNode }) {
   const active = currentNavigation(pathname);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const menuRef = useRef<HTMLButtonElement>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const menuOpen = useUiStore((state) => state.menuOpen);
+  const setMenuOpen = useUiStore((state) => state.setMenuOpen);
 
   function closeMenu() {
     dialogRef.current?.close();
+    setMenuOpen(false);
   }
 
   useEffect(() => {
+    if (menuOpen) dialogRef.current?.showModal();
+    else dialogRef.current?.close();
+  }, [menuOpen]);
+
+  useEffect(() => {
     dialogRef.current?.close();
-  }, [pathname]);
+    setMenuOpen(false);
+  }, [pathname, setMenuOpen]);
   useEffect(() => {
     const desktop = window.matchMedia("(min-width: 1024px)");
     const closeOnDesktop = () => {
-      if (desktop.matches) dialogRef.current?.close();
+      if (desktop.matches) {
+        dialogRef.current?.close();
+        setMenuOpen(false);
+      }
     };
     desktop.addEventListener("change", closeOnDesktop);
     return () => desktop.removeEventListener("change", closeOnDesktop);
-  }, []);
+  }, [setMenuOpen]);
   useEffect(() => {
     if (!menuOpen) return;
     const previous = document.body.style.overflow;
@@ -130,7 +142,6 @@ export function AppShell({ children }: { children: ReactNode }) {
               aria-controls="mobile-navigation"
               aria-expanded={menuOpen}
               onClick={() => {
-                dialogRef.current?.showModal();
                 setMenuOpen(true);
               }}
             >
@@ -154,7 +165,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         </main>
         <footer className="workspace-footer">
           <span>Saga Order System</span>
-          <span>Layout preview · No live data</span>
+          <span>
+            {pathname === "/services"
+              ? "Live service checks · Read-only"
+              : "Layout preview · No live data"}
+          </span>
         </footer>
       </div>
       <dialog

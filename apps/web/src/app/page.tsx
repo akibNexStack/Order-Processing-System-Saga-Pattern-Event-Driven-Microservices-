@@ -48,8 +48,8 @@ export default function HomePage() {
         }
       />
       <PreviewNotice>
-        Navigation is ready to explore. Order actions and live service data will
-        be connected in the next steps.
+        Order actions are still previews. Live health and readiness checks are
+        available on the Services screen.
       </PreviewNotice>
       <div className="area-grid">
         {areas.map((area) => (
@@ -133,7 +133,7 @@ export default function HomePage() {
             <Icon name="server" />
             <span>Service health and readiness</span>
           </div>
-          <StatusBadge tone="info">Connections coming next</StatusBadge>
+          <StatusBadge tone="info">Service checks connected</StatusBadge>
         </Card>
       </div>
     </>

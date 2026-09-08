@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test:state": "npm run build --workspace @saga/shared && tsx --test --test-isolation=none tests/state/*.test.ts tests/state/*.test.tsx",
     "predev": "npm run build --workspace @saga/shared",
     "prebuild": "npm run build --workspace @saga/shared",
     "pretypecheck": "npm run build --workspace @saga/shared",

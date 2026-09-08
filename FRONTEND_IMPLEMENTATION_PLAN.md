@@ -44,6 +44,10 @@ RTK Query is used for typed queries/mutations and server-data caching, as reques
 
 ## Step 4 — Implement Zustand Stores and State Lifecycles
 
+**Status:** Implemented. Per-provider `checkoutStore` and `uiStore` are mounted at the root layout. Navigation uses Zustand; checkout drafts and immutable retry snapshots remain in memory. Only validated recent order IDs and the remember-history preference are persisted after hydration. Server data remains exclusively in RTK Query. See [state-layer documentation](apps/web/README.md#step-4--zustand-state-and-lifecycles) for usage, checks, and reload limitations. Checkout forms, live submission, and the recent-order screen remain in Steps 6–8.
+
+**Verification:** Workspace typechecks, production build, and all 60 automated checks passed: 14 state/provider tests, 30 browser tests, 10 API tests, 5 component tests, and 1 isolated API integration test.
+
 - Create `checkoutStore` for selected items, form drafts, the idempotency key, and submission state.
 - Use Step 3's RTK Query cache for order details, history, participant status, health/readiness, and request state; do not duplicate this server data in Zustand.
 - Create `uiStore` for navigation state and UI preferences.
@@ -54,6 +58,10 @@ RTK Query is used for typed queries/mutations and server-data caching, as reques
 **Completion outcome:** UI state and data retrieved from the server are managed consistently.
 
 ## Step 5 — Build the Service Status Screen
+
+**Status:** Implemented at `/services` with independent RTK Query health/readiness requests for all four services, separate dependency results, last-check timestamps, per-service refresh, and refresh-all. Loading, unready, unavailable, invalid-response, and missing-check states are distinguished; failed refreshes never leave old success results displayed as current. See [service-screen documentation](apps/web/README.md#step-5--live-service-status).
+
+**Verification:** Workspace typechecks, production build, and 72 checks passed: 42 desktop/mobile browser checks, 14 state/provider checks, 10 API checks, 5 component checks, and 1 real-proxy integration check. The integration fixture deadline was adjusted from 100 ms to 1000 ms for the eight-request burst, then successfully rerun; its explicit timeout assertion remains in place. Desktop/mobile screenshots were reviewed. Real PostgreSQL/RabbitMQ availability was not asserted.
 
 - Display `/health` and `/ready` results for all four services.
 - Show database, broker, and order recovery status separately.

@@ -1,5 +1,10 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { mockHealthyServices } from "./fixtures/services";
+
+test.beforeEach(async ({ page }) => {
+  await mockHealthyServices(page);
+});
 
 const pages = [
   { path: "/", heading: "Overview", nav: "Overview" },
@@ -23,7 +28,12 @@ for (const target of pages) {
     );
     await expect(page).toHaveTitle(`${target.nav} | Saga`);
     await expect(page.getByRole("main")).toHaveCount(1);
-    await expect(page.getByText("Workspace preview.")).toBeVisible();
+    if (target.path === "/services") {
+      await expect(page.getByText("Ready", { exact: true })).toHaveCount(4);
+      await expect(
+        page.getByText("Live service checks · Read-only"),
+      ).toBeVisible();
+    } else await expect(page.getByText("Workspace preview.")).toBeVisible();
     if (isMobile)
       await page.getByRole("button", { name: "Open navigation" }).click();
     const nav = page.getByRole("navigation", { name: "Primary navigation" });
@@ -75,7 +85,7 @@ test("navigation and browser history keep the active item accurate", async ({
   ).toHaveAttribute("aria-current", "page");
 });
 
-test("preview controls cannot submit orders or imply checked service health", async ({
+test("checkout controls remain previews and service checks are read-only", async ({
   page,
 }) => {
   const writes: string[] = [];
@@ -98,7 +108,7 @@ test("preview controls cannot submit orders or imply checked service health", as
   await expect(page.getByLabel("Order ID", { exact: true })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Find order" })).toBeDisabled();
   await page.goto("/services");
-  await expect(page.getByText("Not checked", { exact: true })).toHaveCount(4);
+  await expect(page.getByText("Responding", { exact: true })).toHaveCount(4);
   expect(writes).toEqual([]);
 });
 

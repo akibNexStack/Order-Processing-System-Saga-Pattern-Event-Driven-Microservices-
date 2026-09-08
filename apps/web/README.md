@@ -1,6 +1,6 @@
 # Saga frontend
 
-Next.js App Router workspace for the order-processing microservices. Steps 1–2 provide the application foundation, responsive shell, navigation, and shared UI components. Step 3 adds the backend proxy and RTK Query integration; live screens and Zustand UI stores belong to later steps.
+Next.js App Router workspace for the order-processing microservices. Steps 1–2 provide the application foundation, responsive shell, navigation, and shared UI components. Step 3 adds the backend proxy and RTK Query integration; Step 4 adds Zustand state, persistence, and hydration. Step 5 connects the live Services screen. Order workflows remain in later steps.
 
 Run commands from the repository root after installing dependencies with `npm ci`:
 
@@ -44,11 +44,11 @@ The frontend has its own TypeScript configuration because Next.js uses bundler m
 | `/orders/new` | Create order layout preview |
 | `/orders` | Order lookup and recent orders layout preview |
 | `/attention` | Intervention queue layout preview |
-| `/services` | Service descriptions and readiness check categories |
+| `/services` | Live health/readiness, dependency results, timestamps, and refresh |
 
 All routes share the desktop sidebar, header, and footer. Below 1024px, navigation opens in a native modal drawer with keyboard focus containment, Escape/backdrop dismissal, focus restoration, and scroll locking. Selecting a route or resizing to desktop closes the drawer. A skip link provides direct keyboard access to the main content.
 
-The UI explicitly labels its preview state. Checkout and search controls are disabled; service cards say “Not checked.” No API requests, order writes, polling, or invented business metrics are included in this step.
+Checkout and search remain explicitly labeled previews with disabled controls. The Services screen is live as of Step 5 and makes read-only health/readiness requests; it does not submit orders or modify services.
 
 Reusable primitives live in `src/components/ui`: buttons and links, labeled inputs, cards, status badges, icons, empty states, loading indicators, skeletons, and retryable error states. `src/components/layout` contains navigation, the application shell, page headings, and preview notices. App Router loading, error, and not-found files keep navigation available during page-level transitions and failures.
 
@@ -61,7 +61,7 @@ npm exec --workspace @saga/web -- playwright install chromium
 npm run test:web
 ```
 
-`test:web` runs component and API checks, builds the production application, runs Playwright at `127.0.0.1:3104`, and tests the API integration on port 3105 with isolated backend fixtures. Both ports must be free; the suite deliberately does not reuse existing servers. It stops its servers when finished and does not require Docker or real backend services.
+`test:web` runs component, Zustand state, and API checks, builds the production application, runs Playwright at `127.0.0.1:3104`, and tests the API integration on port 3105 with isolated backend fixtures. Both ports must be free; the suite deliberately does not reuse existing servers. It stops its servers when finished and does not require Docker or real backend services.
 
 The browser suite covers direct routes, active navigation, browser history, disabled preview controls, 404 recovery, skip-link focus, mobile drawer behavior, responsive overflow, and automated WCAG accessibility checks. It uses desktop and mobile Chromium configurations, captures a full-page image of each main screen in `apps/web/test-results`, and saves an HTML report in `apps/web/playwright-report`. These output folders are ignored by Git. Browser automation requires permission to start local processes and bind a port.
 
@@ -94,7 +94,7 @@ See the [frontend implementation plan](../../FRONTEND_IMPLEMENTATION_PLAN.md) an
 
 ## Step 3 — Backend connection and RTK Query
 
-The connection layer is implemented. Pages are still Step 2 previews; later steps will consume the exported hooks. RTK Query owns server data, loading/error state, and cache invalidation. Zustand remains available for checkout drafts and local UI state. The Redux store is created per provider, not shared globally between server requests, and is not persisted.
+The connection layer is implemented. The Services screen consumes its hooks as of Step 5; order screens remain previews. RTK Query owns server data, loading/error state, and cache invalidation. Zustand remains available for checkout drafts and local UI state. The Redux store is created per provider, not shared globally between server requests, and is not persisted.
 
 Run from the repository root with `npm run dev:web`, then open `http://localhost:3004`. Backend URLs default to ports 3000–3003. To override them, create `apps/web/.env.local` using the settings in [`.env.example`](.env.example), then restart Next.js. These variables must remain server-only; never prefix them with `NEXT_PUBLIC_`. URLs must be HTTP(S) origins without credentials, paths, or query strings. `BACKEND_TIMEOUT_MS` defaults to 10000 and accepts 100–120000; the browser independently times out after 15000 ms.
 
@@ -152,3 +152,79 @@ npm run test:api:e2e --workspace @saga/web
 The integration test starts a production Next server on port 3105 and an isolated HTTP fixture backend on an ephemeral port. It checks actual proxy requests and RTK dispatches, readiness 503, payment rejection 422, original command bodies/keys, cache/refetch behavior, 404/405, malformed responses, timeout, and unavailable backends. It does not write to real payment, inventory, shipping, or order databases. `npm run test:web` includes these checks plus the existing component and browser suites; ports 3104 and 3105 must be free. Successful fixture tests do not establish that local PostgreSQL/RabbitMQ or real service workflows are healthy.
 
 Verified on 2026-09-08: workspace typechecks, the production build, 10 API tests, the production-server integration test (including Chromium same-origin calls to all four service routes), 5 component checks, and 22 desktop/mobile browser regressions passed. A client-chunk scan found no backend URL environment-variable names or default backend origins. The tests cover the Step 3 connection layer, not complete live saga execution.
+
+## Step 4 — Zustand state and lifecycles
+
+`StateProvider` creates separate vanilla Zustand stores for each mounted application tree. There are no module-level store instances to leak checkout data between server requests. The root provider remains mounted during client-side route changes. RTK Query still owns order details, history, participant results, service health/readiness, API errors, and cache invalidation; those values are not copied into Zustand.
+
+| Store | Responsibilities | Persisted? |
+| --- | --- | --- |
+| `checkoutStore` | Selected items, customer/amount/currency/address draft, idempotency key, immutable submitted request, local submission phase/error | No |
+| `uiStore` | Mobile drawer, storage hydration status, recent order IDs, remember-history preference | Only IDs and preference |
+
+Import selector hooks from `@/components/providers/state-provider` in Client Components. Select individual fields/actions, or use Zustand's `useShallow` for selectors returning a new object/array. Do not construct a new object in a selector without a stable equality strategy.
+
+```tsx
+const draft = useCheckoutStore(state => state.draft);
+const updateDraft = useCheckoutStore(state => state.updateDraft);
+const hydration = useUiStore(state => state.hydration);
+const recentOrderIds = useUiStore(state => state.recentOrderIds);
+const addRecentOrder = useUiStore(state => state.addRecentOrder);
+
+// Partial top-level update; pass a complete address when replacing that field.
+updateDraft({ shippingAddress: { ...draft.shippingAddress, city: "Dhaka" } });
+// After a real response provides a valid order ID, and hydration is no longer pending:
+addRecentOrder(orderId);
+```
+
+### Checkout lifecycle contract
+
+- `updateDraft(patch)` copies the input and succeeds only while `submission` is `idle`. Drafts may be incomplete; `beginSubmission()` validates the complete request using the shared contract.
+- `beginSubmission()` generates a cryptographically random key, freezes a validated request snapshot, changes the phase to `submitting`, and returns a separate request copy. It returns `null` for invalid input, unavailable secure key generation, or an already-locked checkout. It does **not** send a request.
+- `markUncertain(key, message)` records an unknown outcome after a timeout/network failure. Draft changes and reset remain blocked. `retrySubmission()` returns the exact original normalized payload/key and moves back to `submitting`; it never generates a replacement key.
+- `markSettled(key)` is for a definitive submission response or confirmed reconciliation. A known order accepted with 202 can settle the submission even while its saga continues running. Do not call it merely because a request timed out or returned an ambiguous infrastructure failure.
+- `resetCheckout()` clears draft, key, request, and error only when idle/settled. A subsequent submission gets a new key. Callbacks with a different key are ignored. These are lifecycle primitives for Step 7, not live checkout wiring.
+
+Shipping addresses, customer IDs, item selections, request snapshots, keys, and submission errors are **never written to localStorage/sessionStorage**. They survive client-side navigation but not a full reload, tab close, or provider unmount. Do not reload an unresolved checkout expecting an automatic retry: this step does not promise duplicate prevention across reloads. Reconcile existing orders before starting a replacement checkout. The Step 7 UI must explain that limitation when live submission is introduced.
+
+### Hydration and persistence contract
+
+The first server/browser render uses deterministic defaults with `hydration: "pending"`. A mount effect reads `saga:ui:v1`, restores allowlisted preferences, then marks hydration `ready`. History/preference mutations return `false` while hydration is pending, so a premature write cannot overwrite saved history. Navigation does not wait for storage.
+
+Persisted format: `{ version: 1, state: { rememberRecentOrders, recentOrderIds } }`. IDs are validated UUIDs, normalized to lowercase, deduplicated, ordered most-recent-first, and capped at 20. Invalid JSON/versions fall back to defaults; unrecognized fields and any injected private data are discarded when this owned storage key is rewritten. Other storage keys are untouched.
+
+`addRecentOrder`, `removeRecentOrder`, and `clearRecentOrders` manage the list. `setRememberRecentOrders(false)` clears remembered IDs and rejects new additions until enabled again. These actions are ready for the Step 8 recent-orders UI; there is no fabricated order history on today's preview pages.
+
+Blocked storage, read failures, or quota errors set hydration to `unavailable` without crashing the app. History remains usable in memory, but persistence/clearing on disk cannot be guaranteed while storage is unavailable. Repeated hydration effects retain current state and clean up their subscriptions. Drawer state is never restored from storage; path changes, Escape/backdrop dismissal, and desktop resizing close it. Separate tabs do not synchronize live: saved preferences are restored on mount, and later writes are last-writer-wins.
+
+### State-layer checks
+
+```bash
+npm run test:state --workspace @saga/web
+npm run typecheck
+npm run test:web
+```
+
+State tests cover store isolation, deterministic SSR, missing-provider errors, draft copying, request validation, duplicate guards, immutable retries, stale keys, reset rules, hydration, recent-ID limits/ordering, opt-out, malformed storage, storage failures, and subscription cleanup. Browser tests use the real application to check hydration/reload, persisted-data sanitization, opted-out history, and navigation with blocked storage. Existing navigation/accessibility tests remain in the regression suite. No real backend/database writes are required.
+
+Verified on 2026-09-08: root `npm run typecheck` and the complete `npm run test:web` suite passed. Results: 5 component checks, 14 state/provider checks, 10 API checks, the production build, 30 desktop/mobile Chromium checks (including 8 new state checks), and 1 isolated production-server API integration test. No failures or skips were reported. Formatting and `git diff --check` also passed. This verifies the implemented state layer and existing frontend regressions; full live checkout/saga execution remains outside Step 4.
+
+## Step 5 — Live service status
+
+Run `npm run dev:web` from the repository root and open `http://localhost:3004/services`. To observe healthy real services, prepare PostgreSQL/RabbitMQ and the backend service configuration, then start the services using the startup instructions above. An unavailable card is expected when its backend is stopped; `/health` can respond while `/ready` reports dependency failures.
+
+The screen sends eight independent read-only requests through Next.js: `/api/services/{orders,payment,inventory,shipping}/{health,ready}`. RTK Query owns all results; nothing is copied into Zustand or persisted to browser storage. Checks run on entry, manual refresh, focus, and reconnect. There is no periodic polling and no claim of continuous monitoring.
+
+Each service card displays:
+
+- Health: **Responding**, **Checking…**, or **Unavailable**, with a readable error when a response cannot be verified.
+- Readiness: **Ready**, **Not ready**, **Checking…**, **Unavailable**, or **Incomplete checks**. A valid readiness 503 displays its reported dependency results, not a generic network error.
+- Separate Database and Broker results, plus Order recovery for the orchestrator. Results are **Available**, **Unavailable**, or **Unknown**. Missing/configuration-failure responses never invent failed or successful dependency checks.
+- A local-time timestamp for each completed health/readiness response. On a request failure, “Last attempt” shows when that attempt started. During refresh, previous completion timestamps may remain visible, but old readiness/dependency successes are hidden until a fresh result arrives.
+- A per-service Refresh button. Refresh all services checks every endpoint; controls are disabled while their requests are in progress. A slow/unavailable service does not hide other results or disable the other cards' refresh controls.
+
+Wrong health service identities, malformed JSON, schema errors, and a “ready” body containing failed dependency checks are rejected. Timeouts, network failures, and other HTTP errors display distinct explanations. The screen performs no order submissions, recovery commands, or service mutations.
+
+Browser coverage in `tests/services.spec.ts` includes initial loading, timestamps, healthy responses, dependency failures, unconfigured checks, partial outages, slow endpoints, single/all refresh, stale-success removal, invalid responses, and recovery from an all-down state. Layout/accessibility tests use deterministic HTTP fixtures; the isolated integration test additionally opens the real Services page and verifies the complete browser → RTK Query → Next proxy → HTTP backend path. These tests verify the frontend behavior, not the availability of your real databases or broker.
+
+Verified on 2026-09-08: workspace typechecks, production build, 42 browser checks, 14 state/provider checks, 10 API checks, 5 component checks, and 1 isolated integration check passed (72 total). The initial integration run hit its old 100 ms test deadline during the eight-request burst; after raising only that fixture deadline to 1000 ms, the integration rerun passed, including explicit timeout handling. Production timeout defaults were not changed. Desktop outage and mobile healthy screenshots were reviewed, and formatting/diff checks passed. No real order/payment/inventory/shipping records were changed by verification.

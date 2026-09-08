@@ -6,7 +6,7 @@ import { once } from "node:events";
 import { setTimeout as delay } from "node:timers/promises";
 import { makeStore } from "../src/lib/store";
 import { sagaApi } from "../src/lib/api/api";
-import { chromium } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
 
 test(
   "production Next route and RTK Query integrate with isolated HTTP backends",
@@ -93,7 +93,8 @@ test(
           PAYMENT_SERVICE_URL: origin,
           INVENTORY_SERVICE_URL: origin,
           SHIPPING_SERVICE_URL: origin,
-          BACKEND_TIMEOUT_MS: "100",
+          // Allow the screen's parallel burst; timeout mode below still proves 504 handling.
+          BACKEND_TIMEOUT_MS: "1000",
         },
         stdio: ["ignore", "pipe", "pipe"],
       },
@@ -186,6 +187,21 @@ test(
         assert.equal(response.body.status, "ok");
         assert.match(response.cache!, /no-store/);
       }
+      // Exercise the actual screen -> RTK hooks -> Next proxy -> HTTP backend chain.
+      await page.goto("http://127.0.0.1:3105/services");
+      const orderCard = page.getByRole("region", {
+        name: "Order Orchestrator",
+        exact: true,
+      });
+      await expect(
+        orderCard.getByText("Responding", { exact: true }),
+      ).toBeVisible();
+      await expect(
+        orderCard.getByText("Not ready", { exact: true }),
+      ).toBeVisible();
+      await expect(
+        orderCard.getByText("Order recovery", { exact: true }),
+      ).toBeVisible();
     } finally {
       await browser.close();
     }

@@ -145,7 +145,10 @@ export const sagaApi = createApi({
     getServiceHealth: build.query<Reply<typeof c.HealthSchema>, c.ServiceName>({
       query: (service) => ({
         url: `services/${service}/health`,
-        schema: c.HealthSchema,
+        schema: c.HealthSchema.refine(
+          (body) => body.service === c.serviceIdentities[service],
+          "Unexpected service identity",
+        ),
       }),
     }),
     getServiceReadiness: build.query<

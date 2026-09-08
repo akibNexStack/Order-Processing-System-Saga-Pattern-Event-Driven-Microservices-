@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { ApiProvider } from "@/components/providers/api-provider";
+import { StateProvider } from "@/components/providers/state-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -16,7 +17,9 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <ApiProvider>
-          <AppShell>{children}</AppShell>
+          <StateProvider>
+            <AppShell>{children}</AppShell>
+          </StateProvider>
         </ApiProvider>
       </body>
     </html>

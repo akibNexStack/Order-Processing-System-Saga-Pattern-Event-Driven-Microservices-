@@ -37,6 +37,8 @@ for (const target of pages) {
       await expect(
         page.getByRole("main").getByText(/Demo checkout · Live submission/),
       ).toBeVisible();
+    else if (target.path === "/orders")
+      await expect(page.getByText(/Order lookup is read-only/)).toBeVisible();
     else await expect(page.getByText("Workspace preview.")).toBeVisible();
     if (isMobile)
       await page.getByRole("button", { name: "Open navigation" }).click();
@@ -114,8 +116,10 @@ test("checkout is editable and service checks are read-only", async ({
     page.getByRole("button", { name: "Create order" }),
   ).toBeEnabled();
   await page.goto("/orders");
-  await expect(page.getByLabel("Order ID", { exact: true })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Find order" })).toBeDisabled();
+  await expect(
+    page.getByRole("textbox", { name: "Order ID", exact: true }),
+  ).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Find order" })).toBeEnabled();
   await page.goto("/services");
   await expect(page.getByText("Responding", { exact: true })).toHaveCount(4);
   expect(writes).toEqual([]);

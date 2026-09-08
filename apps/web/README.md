@@ -1,5 +1,7 @@
 # Saga frontend
 
+Step 8 now provides read-only order lookup, browser-local recent orders, full order details, and independently refreshable payment/reservation/shipment sections. Automatic polling remains Step 9.
+
 Next.js App Router workspace for the order-processing microservices. Steps 1–2 provide the application foundation, responsive shell, navigation, and shared UI components. Step 3 adds the backend proxy and RTK Query integration; Step 4 adds Zustand state, persistence, and hydration. Step 5 connects the live Services screen, Step 6 adds checkout validation, and Step 7 connects order submission with duplicate prevention and explicit same-key retries.
 
 Run commands from the repository root after installing dependencies with `npm ci`:
@@ -42,14 +44,14 @@ The frontend has its own TypeScript configuration because Next.js uses bundler m
 | --- | --- |
 | `/` | Overview and workspace shortcuts |
 | `/orders/new` | Demo checkout, local validation, live submission, and safe retry |
-| `/orders/[orderId]` | Submission receipt; full details and live lookup arrive in Step 8 |
-| `/orders` | Order lookup and recent orders layout preview |
+| `/orders/[orderId]` | Order details, participant snapshots, and an optional original submission receipt |
+| `/orders` | UUID lookup and browser-local recent orders |
 | `/attention` | Intervention queue layout preview |
 | `/services` | Live health/readiness, dependency results, timestamps, and refresh |
 
 All routes share the desktop sidebar, header, and footer. Below 1024px, navigation opens in a native modal drawer with keyboard focus containment, Escape/backdrop dismissal, focus restoration, and scroll locking. Selecting a route or resizing to desktop closes the drawer. A skip link provides direct keyboard access to the main content.
 
-Checkout fields are editable as of Step 6. As of Step 7, Create order submits to the configured backend; Validate order (including Enter in a field) performs local checks only. Order search is still a disabled preview. The Services screen is live as of Step 5 and makes read-only health/readiness requests; it does not submit orders or modify services.
+Checkout fields are editable as of Step 6. As of Step 7, Create order submits to the configured backend; Validate order (including Enter in a field) performs local checks only. Order search and details are connected as of Step 8. The Services screen is live as of Step 5 and makes read-only health/readiness requests; it does not submit orders or modify services.
 
 Reusable primitives live in `src/components/ui`: buttons and links, labeled inputs, cards, status badges, icons, empty states, loading indicators, skeletons, and retryable error states. `src/components/layout` contains navigation, the application shell, page headings, and preview notices. App Router loading, error, and not-found files keep navigation available during page-level transitions and failures.
 
@@ -95,7 +97,7 @@ See the [frontend implementation plan](../../FRONTEND_IMPLEMENTATION_PLAN.md) an
 
 ## Step 3 — Backend connection and RTK Query
 
-The connection layer is implemented. The Services screen consumes its hooks as of Step 5; order screens remain previews. RTK Query owns server data, loading/error state, and cache invalidation. Zustand remains available for checkout drafts and local UI state. The Redux store is created per provider, not shared globally between server requests, and is not persisted.
+The connection layer is implemented. The Services screen consumes its hooks as of Step 5; checkout submission and order lookup/details use them as of Steps 7–8. RTK Query owns server data, loading/error state, and cache invalidation. Zustand remains available for checkout drafts and local UI state. The Redux store is created per provider, not shared globally between server requests, and is not persisted.
 
 Run from the repository root with `npm run dev:web`, then open `http://localhost:3004`. Backend URLs default to ports 3000–3003. To override them, create `apps/web/.env.local` using the settings in [`.env.example`](.env.example), then restart Next.js. These variables must remain server-only; never prefix them with `NEXT_PUBLIC_`. URLs must be HTTP(S) origins without credentials, paths, or query strings. `BACKEND_TIMEOUT_MS` defaults to 10000 and accepts 100–120000; the browser independently times out after 15000 ms.
 
@@ -194,7 +196,7 @@ The first server/browser render uses deterministic defaults with `hydration: "pe
 
 Persisted format: `{ version: 1, state: { rememberRecentOrders, recentOrderIds } }`. IDs are validated UUIDs, normalized to lowercase, deduplicated, ordered most-recent-first, and capped at 20. Invalid JSON/versions fall back to defaults; unrecognized fields and any injected private data are discarded when this owned storage key is rewritten. Other storage keys are untouched.
 
-`addRecentOrder`, `removeRecentOrder`, and `clearRecentOrders` manage the list. `setRememberRecentOrders(false)` clears remembered IDs and rejects new additions until enabled again. These actions are ready for the Step 8 recent-orders UI; there is no fabricated order history on today's preview pages.
+`addRecentOrder`, `removeRecentOrder`, and `clearRecentOrders` manage the list. `setRememberRecentOrders(false)` clears remembered IDs and rejects new additions until enabled again. Step 8 exposes these actions in the recent-orders UI. It is not a server-side list of all orders.
 
 Blocked storage, read failures, or quota errors set hydration to `unavailable` without crashing the app. History remains usable in memory, but persistence/clearing on disk cannot be guaranteed while storage is unavailable. Repeated hydration effects retain current state and clean up their subscriptions. Drawer state is never restored from storage; path changes, Escape/backdrop dismissal, and desktop resizing close it. Separate tabs do not synchronize live: saved preferences are restored on mount, and later writes are last-writer-wins.
 
@@ -249,13 +251,31 @@ Responses must pass the shared HTTP schema and match the request's customer, key
 
 Successful correlation records the order ID in the browser's existing recent-history store, respecting opt-out and storage-unavailable behavior. Only IDs/preferences persist; drafts, delivery details, request keys, and receipts remain in memory. Completion updates the store even when the checkout page unmounts. It does not redirect users who navigated elsewhere; returning to checkout shows a **View submitted order** link. Settled checkouts stay locked until the user chooses **Start new checkout**, which clears their data and uses a new key on the next submission.
 
-`/orders/[orderId]` is a minimal submission-result destination, not the Step 8 details implementation. It displays a matching in-memory receipt and clearly identifies it as a snapshot. After reload/direct entry it does not assert the order exists or invent its current status. Full lookup/details and automatic polling remain Steps 8–9.
+At the Step 7 milestone, `/orders/[orderId]` was a minimal submission-result destination. Step 8 now fetches order/participant details there. A matching in-memory submission receipt is shown separately and labeled as the original response; it never substitutes for the latest GET result. After reload the receipt disappears, but details are fetched again. Automatic polling remains Step 9.
 
 **Lifetime limitation:** duplicate prevention is scoped to this tab's current in-memory checkout. A root-mounted `beforeunload` handler requests a browser warning while submitting/uncertain, including after client navigation, but browsers cannot guarantee this warning on close/crash. Reloading, closing, or opening another tab can lose the retry key and is not a safe retry mechanism. Keep the tab open until the outcome is known; if it is lost, reconcile with the backend before placing another order. No sensitive request payload is persisted to work around this limitation.
 
 Tests cover state locking, same-key byte-for-byte retries, receipt correlation, `200/201/202/400/409/422/503`, timeouts, malformed responses, Retry-After, browser navigation, history opt-out, reload behavior, and desktop/mobile accessibility. The isolated API integration test exercises the actual browser → RTK mutation → production Next proxy → fixture backend path, including a `503` followed by an identical retry. It does not charge real providers or assert real PostgreSQL/RabbitMQ availability.
 
 Verification on 2026-09-08: workspace typechecks, production build, and 118 checks passed (76 browser, 26 state/provider, 10 API, 5 component, 1 real-proxy integration). An initial integration assertion also matched Next's route announcer; alert selectors were scoped to main content and the check passed. The full 76-test browser run passed. Screenshot review then identified missing receipt-card spacing; it was corrected and all 8 affected desktop/mobile receipt tests passed again, including explicit padding and accessibility assertions. The real-proxy integration also passed against the final build. One final-build attempt was terminated during tracing; the subsequent build completed successfully. Desktop/mobile receipt and uncertain-retry screenshots were inspected. These results cover the frontend and isolated integration, not a real-provider purchase or guaranteed operation across tab close/crash.
+
+## Step 8 — Order lookup and details
+
+Use `/orders` to enter an order UUID. Surrounding whitespace and uppercase UUIDs are normalized before navigation. Invalid input shows an associated field error and receives focus; invalid detail URLs show a recovery link without making backend requests. These pages only read services; they do not retry saga operations, charge/refund, reserve/release, or create/cancel shipments.
+
+The recent-orders section uses the existing Zustand UI store: up to 20 unique IDs, most recent first, recorded after verified lookup or submission. Open an ID, remove an entry, clear the list, or disable remembering entirely. Only IDs/preferences persist. Delivery details and API responses remain in memory. If browser storage is unavailable, the UI explains the in-memory fallback. A missing or unverified lookup does not add a new ID; existing saved IDs are not automatically deleted.
+
+`/orders/[orderId]` reads `GET /orders/:id`, displays customer UUID, product IDs/quantities (seeded names where known), exact amount/currency, full shipping address, saga status/step/operation, compensation and intervention flags/reason, inventory-finalization state, and timestamps. There is no customer-profile or catalog-price API; the screen does not invent those details.
+
+After verifying the order identity, the page independently reads payment, inventory reservation, and shipment GET endpoints. Each section has its own loading/error state and refresh button. It shows primary record status/IDs/provider references, stored operation results, and refund/cancellation records, including compensation-only rows. A documented participant `404` or a null primary record displays **Not started yet**, not a failure. An unavailable, malformed, or unrelated response displays an error instead; it is never interpreted as an absent record. Order/saga IDs, result identities, and reservation-item associations are checked before rendering.
+
+Snapshots refresh on page entry and explicit **Refresh** clicks. Focus/reconnect refetching is disabled for these order queries and there is no polling timer. **Refresh order** revalidates the order and then reloads its participant sections; each participant can also be refreshed independently. Previously cached successes are hidden while that section is checking or has failed. RTK Query owns separate per-ID caches, and a late previous-order response cannot replace the currently selected order. The services are queried separately, so their timestamps can differ; these are not one atomic cross-service snapshot.
+
+An order-service `404` shows **Order not found** and prevents participant requests. Other order failures show a retryable error. Invalid detail IDs are rendered as an explicit invalid-ID screen; backend missing-order errors are shown inside the normal detail route rather than claiming the frontend HTTP document itself is a backend `404`.
+
+The Step 7 receipt, when present, is explicitly historical and separate from the GET-based overview. Full transition history/progress, automatic polling, and operational actions remain in Steps 9–11. Tests include lookup normalization, privacy/history controls, missing and mismatched records, partial failures, compensation-only data, intervention reasons, late-response isolation, responsive overflow, accessibility, and real Next-proxy GET integration with isolated fixtures.
+
+Verification on 2026-09-08: workspace typechecks, final production build, 29 state/provider checks, 5 component checks, 10 API checks, and the isolated real-proxy integration check passed. All 16 new Step 8 desktop/mobile browser checks passed, including screenshots, accessibility and 320/768/1440px overflow checks. A subsequent result-label/badge readability adjustment was rebuilt successfully. Against that final build, the full browser run passed all 46 desktop checks and its first mobile checkout check, then was terminated (exit 143). The requested separate mobile rerun was not approved. Therefore the final full mobile regression pass is **not complete**, and the 92-test suite must not be reported as fully passed. To finish it when permitted, run `npm run test:e2e --workspace @saga/web -- --project=mobile`. Tests use isolated fixtures, not real purchases or real PostgreSQL/RabbitMQ availability.
 
 ## Step 6 — Checkout form and local validation
 

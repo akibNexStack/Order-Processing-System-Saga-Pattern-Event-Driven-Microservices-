@@ -49,8 +49,8 @@ export default function HomePage() {
       />
       <PreviewNotice>
         Checkout can now submit orders to the configured backend. Live health
-        checks are available on the Services screen. Order lookup is coming in
-        Step 8.
+        checks are available on the Services screen. Open Orders to look up an
+        order and its participant records.
       </PreviewNotice>
       <div className="area-grid">
         {areas.map((area) => (

@@ -1002,3 +1002,88 @@ h2 {
   justify-items: start;
   line-height: 1.6;
 }
+.order-panel {
+  padding: 24px;
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+.order-panel-heading,
+.recent-orders li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.order-panel-heading h2 {
+  font-size: 18px;
+  font-weight: 600;
+}
+.order-panel h3 {
+  font-weight: 600;
+}
+.order-panel > .status-badge {
+  justify-self: start;
+}
+.order-fields {
+  display: grid;
+  gap: 12px;
+}
+.order-fields > div {
+  display: grid;
+  grid-template-columns: minmax(100px, 1fr) minmax(0, 2fr);
+  gap: 12px;
+}
+.order-fields dt {
+  color: var(--muted);
+}
+.order-fields dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.participant-grid,
+.order-information-grid {
+  display: grid;
+  gap: 24px;
+  align-items: start;
+}
+.order-items {
+  list-style: disc;
+  padding-left: 20px;
+}
+.order-items li + li {
+  margin-top: 12px;
+}
+.order-panel address {
+  font-style: normal;
+}
+.history-preference {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.recent-orders {
+  display: grid;
+  gap: 12px;
+}
+.recent-orders a {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.operation-result {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+@media (min-width: 1100px) {
+  .participant-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .order-information-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}

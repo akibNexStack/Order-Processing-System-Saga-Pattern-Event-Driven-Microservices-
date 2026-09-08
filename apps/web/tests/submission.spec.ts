@@ -8,9 +8,11 @@ import {
 } from "./fixtures/checkout";
 import { mockHealthyServices } from "./fixtures/services";
 import type { CreateOrderRequest } from "@saga/shared/contracts";
+import { mockOrderReads } from "./fixtures/orders";
 
 test.beforeEach(async ({ page }) => {
   await mockHealthyServices(page);
+  await mockOrderReads(page);
 });
 
 for (const status of [202, 201, 200, 422])
@@ -38,7 +40,9 @@ for (const status of [202, 201, 200, 422])
       "24px",
     );
     await expect(
-      page.getByRole("main").getByRole(status === 422 ? "alert" : "status"),
+      page
+        .getByRole("region", { name: "Submission receipt", exact: true })
+        .getByRole(status === 422 ? "alert" : "status"),
     ).toContainText(
       status === 202
         ? "Processing is not complete"
@@ -77,8 +81,11 @@ for (const status of [202, 201, 200, 422])
     expect(requests[1].idempotencyKey).not.toBe(requests[0].idempotencyKey);
     await page.reload();
     await expect(
-      page.getByText(/No submission receipt is available/),
-    ).toBeVisible();
+      page.getByRole("region", { name: "Submission receipt", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("region", { name: "Order overview", exact: true }),
+    ).toContainText("CHARGE_PAYMENT");
     expect(requests).toHaveLength(2);
   });
 

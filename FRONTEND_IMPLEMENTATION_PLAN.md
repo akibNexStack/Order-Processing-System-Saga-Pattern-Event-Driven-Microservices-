@@ -106,6 +106,10 @@ RTK Query is used for typed queries/mutations and server-data caching, as reques
 
 ## Step 8 — Build Order Lookup and Details Screens
 
+**Status:** Implemented at `/orders` and `/orders/[orderId]`: validated UUID lookup, recent-history controls, order/customer/items/amount/address and saga information, plus independently refreshable participant records and results. Missing records, partial service failures, identity mismatches, and invalid IDs have explicit states. Original submission receipts remain separately labeled. Automatic polling and full history/operations stay in later steps. See [details documentation](apps/web/README.md#step-8--order-lookup-and-details).
+
+**Verification:** Workspace typechecks, final production build, 29 state/provider tests, 5 component tests, 10 API tests, and the isolated real-proxy integration test passed. All 16 new Step 8 desktop/mobile browser tests passed before a minor result-label/badge readability adjustment. On the final build, all 46 desktop regression tests and the first mobile checkout test passed; the long run then exited with signal 143. Permission to rerun the mobile project was declined, so the final full mobile regression pass remains incomplete. Desktop/mobile screenshots and accessibility checks for the new screens were reviewed. Real database/broker/provider execution was not tested.
+
 - Allow users to search by order ID.
 - Display recent orders recorded in the current browser.
 - Show customer information, items, amount, and shipping address on the order details page.

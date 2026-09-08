@@ -58,6 +58,23 @@ test(
         }
         return;
       }
+      if (req.url === `/orders/${orderId}` && orderRequests.length) {
+        res.end(JSON.stringify(orderReply(JSON.parse(orderRequests.at(-1)!))));
+        return;
+      }
+      const missingName =
+        req.url === `/payments/${orderId}`
+          ? "Payment"
+          : req.url === `/inventory/reservations/${orderId}`
+            ? "Reservation"
+            : req.url === `/shipments/${orderId}`
+              ? "Shipment"
+              : null;
+      if (missingName) {
+        res.statusCode = 404;
+        res.end(JSON.stringify({ error: `${missingName} not found` }));
+        return;
+      }
       if (req.url === "/ready") {
         res.statusCode = 503;
         res.end(
@@ -241,12 +258,21 @@ test(
         .getByRole("button", { name: "Retry original request" })
         .click();
       await expect(page).toHaveURL(`http://127.0.0.1:3105/orders/${orderId}`);
-      await expect(page.getByRole("status")).toContainText(
-        "Processing is not complete",
-      );
+      await expect(
+        page
+          .getByRole("region", { name: "Submission receipt", exact: true })
+          .getByRole("status"),
+      ).toContainText("Processing is not complete");
       assert.equal(orderRequests.length, 2);
       assert.equal(orderRequests[0], orderRequests[1]);
       assert.deepEqual(JSON.parse(orderRequests[0]).payload, payload);
+      await expect(
+        page.getByRole("region", { name: "Order overview", exact: true }),
+      ).toContainText("CHARGE_PAYMENT");
+      for (const name of ["Payment", "Reservation", "Shipment"])
+        await expect(
+          page.getByRole("region", { name, exact: true }),
+        ).toContainText("Not started yet");
     } finally {
       await browser.close();
     }

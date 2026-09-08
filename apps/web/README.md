@@ -1,6 +1,6 @@
 # Saga frontend
 
-Next.js App Router workspace for the order-processing microservices. Steps 1–2 provide the application foundation, responsive shell, navigation, and shared UI components. Step 3 adds the backend proxy and RTK Query integration; Step 4 adds Zustand state, persistence, and hydration. Step 5 connects the live Services screen. Order workflows remain in later steps.
+Next.js App Router workspace for the order-processing microservices. Steps 1–2 provide the application foundation, responsive shell, navigation, and shared UI components. Step 3 adds the backend proxy and RTK Query integration; Step 4 adds Zustand state, persistence, and hydration. Step 5 connects the live Services screen, and Step 6 adds the editable checkout form and local validation. Order submission remains in Step 7.
 
 Run commands from the repository root after installing dependencies with `npm ci`:
 
@@ -41,14 +41,14 @@ The frontend has its own TypeScript configuration because Next.js uses bundler m
 | Route | Screen |
 | --- | --- |
 | `/` | Overview and workspace shortcuts |
-| `/orders/new` | Create order layout preview |
+| `/orders/new` | Demo checkout form, local validation, and order summary |
 | `/orders` | Order lookup and recent orders layout preview |
 | `/attention` | Intervention queue layout preview |
 | `/services` | Live health/readiness, dependency results, timestamps, and refresh |
 
 All routes share the desktop sidebar, header, and footer. Below 1024px, navigation opens in a native modal drawer with keyboard focus containment, Escape/backdrop dismissal, focus restoration, and scroll locking. Selecting a route or resizing to desktop closes the drawer. A skip link provides direct keyboard access to the main content.
 
-Checkout and search remain explicitly labeled previews with disabled controls. The Services screen is live as of Step 5 and makes read-only health/readiness requests; it does not submit orders or modify services.
+Checkout fields are editable as of Step 6, but Create order remains disabled; Validate order performs local checks only. Order search is still a disabled preview. The Services screen is live as of Step 5 and makes read-only health/readiness requests; it does not submit orders or modify services.
 
 Reusable primitives live in `src/components/ui`: buttons and links, labeled inputs, cards, status badges, icons, empty states, loading indicators, skeletons, and retryable error states. `src/components/layout` contains navigation, the application shell, page headings, and preview notices. App Router loading, error, and not-found files keep navigation available during page-level transitions and failures.
 
@@ -228,3 +228,29 @@ Wrong health service identities, malformed JSON, schema errors, and a “ready�
 Browser coverage in `tests/services.spec.ts` includes initial loading, timestamps, healthy responses, dependency failures, unconfigured checks, partial outages, slow endpoints, single/all refresh, stale-success removal, invalid responses, and recovery from an all-down state. Layout/accessibility tests use deterministic HTTP fixtures; the isolated integration test additionally opens the real Services page and verifies the complete browser → RTK Query → Next proxy → HTTP backend path. These tests verify the frontend behavior, not the availability of your real databases or broker.
 
 Verified on 2026-09-08: workspace typechecks, production build, 42 browser checks, 14 state/provider checks, 10 API checks, 5 component checks, and 1 isolated integration check passed (72 total). The initial integration run hit its old 100 ms test deadline during the eight-request burst; after raising only that fixture deadline to 1000 ms, the integration rerun passed, including explicit timeout handling. Production timeout defaults were not changed. Desktop outage and mobile healthy screenshots were reviewed, and formatting/diff checks passed. No real order/payment/inventory/shipping records were changed by verification.
+
+## Step 6 — Checkout form and local validation
+
+Run `npm run dev:web` and open `http://localhost:3004/orders/new`. This step needs no running backend: **Validate order** validates locally; **Create order** is intentionally disabled until Step 7. Entering a form, pressing Enter, validating, and clearing the draft do not send orders, charge payments, or reserve inventory. Validation does not generate an idempotency key or put the checkout into a submitting state.
+
+The three choices match `services/inventory-service/src/db/seed.ts`: Demo Keyboard, Demo Mouse, and Demo Monitor. Displayed seed stock (100, 50, and 0 respectively) is historical initialization data, not live availability. Monitor remains selectable for the insufficient-stock demo. The browser does not import backend/database modules, and a test detects catalog drift from the seed file. There is no catalog-price API, so the amount is explicitly a manually entered **demo total**, not a product-derived price or quote.
+
+### Fields and validation
+
+- Customer ID must be a UUID. Selected products must have whole quantities from 1 through 10,000; at least one item is required.
+- Currency is BDT or USD. Changing currency changes the currency code only; it does not perform exchange-rate conversion.
+- Amounts use digits with an optional one/two-digit decimal fraction, such as `12`, `12.3`, or `12.30`. The supported range is `0.01` through `99999999.99`. Negative values, exponents, commas, trailing decimal points, zero, excessive precision, and out-of-range values are rejected rather than rounded. Enter `0.50`, not `.50`.
+- Amount conversion splits the decimal string into whole/fractional integer parts, so `0.29` is exactly 29 minor units. The raw amount string stays in Zustand memory during edits/navigation; the numeric draft is `null` when that string is invalid.
+- Shipping requires recipient, address line 1, city, postal code, and a two-uppercase-letter country code. Line 2 and region are optional; whitespace-only optional values are omitted from the validated payload. Customer UUIDs and country codes are normalized consistently. These checks match the backend contract; they do not verify that a customer, postal address, or product is operationally available.
+
+Errors are linked to their fields and the first invalid control receives focus after validation. After an unsuccessful validation, errors update as fields are corrected. Editing any value clears the previous success announcement. The summary shows selected products/quantities, the demo total, exact minor units, and entered delivery details without inventing totals or stock guarantees.
+
+The pure helpers in `src/lib/checkout/form.ts` validate the payload and can build a complete shared-contract request when Step 7 supplies an idempotency key. The checkout store's existing submission preparation uses the same normalization, so optional blank address fields cannot pass form validation and later fail solely because of different normalization.
+
+Drafts, including raw amount text and private delivery fields, survive client-side navigation only. They are not written to localStorage or sessionStorage, and a full reload clears them. **Clear draft** resets the draft, amount text, and local feedback. Existing submission locks still protect an in-flight or uncertain checkout from editing.
+
+### Checks
+
+`npm run test:state --workspace @saga/web` includes seed parity, exact amount boundaries/round trips, invalid money formats, shared-schema request construction, address normalization, quantity/duplicate validation, and synchronized/locked/reset amount state. `npm run test:web` additionally runs desktop/mobile form checks for valid and invalid entries, error focus and accessibility, summaries, product selection, no writes, navigation persistence, reset, and reload clearing, alongside all prior regression suites. Backend acceptance and real order submission remain outside this step.
+
+Verification on 2026-09-08: workspace typechecks, production build, 5 component checks, 20 state/provider checks, 10 API checks, 50 desktop/mobile Chromium checks, and 1 isolated real-proxy integration check passed across suite runs and targeted reruns (86 checks). Initial browser runs exposed ambiguous test selectors for required labels and the repeated checkout notice/footer; those selectors were corrected. The subsequent browser run passed 48 checks, and both remaining checkout layout checks passed with `npm run test:e2e --workspace @saga/web -- --last-failed`. Desktop/mobile checkout screenshots were reviewed; automated accessibility scans reported no violations in the tested states. This does not assert real PostgreSQL/RabbitMQ availability or live order acceptance.

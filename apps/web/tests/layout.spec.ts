@@ -33,7 +33,11 @@ for (const target of pages) {
       await expect(
         page.getByText("Live service checks · Read-only"),
       ).toBeVisible();
-    } else await expect(page.getByText("Workspace preview.")).toBeVisible();
+    } else if (target.path === "/orders/new")
+      await expect(
+        page.getByRole("main").getByText(/Demo checkout · Validation only/),
+      ).toBeVisible();
+    else await expect(page.getByText("Workspace preview.")).toBeVisible();
     if (isMobile)
       await page.getByRole("button", { name: "Open navigation" }).click();
     const nav = page.getByRole("navigation", { name: "Primary navigation" });
@@ -85,7 +89,7 @@ test("navigation and browser history keep the active item accurate", async ({
   ).toHaveAttribute("aria-current", "page");
 });
 
-test("checkout controls remain previews and service checks are read-only", async ({
+test("checkout validation is editable but submission stays disabled and service checks are read-only", async ({
   page,
 }) => {
   const writes: string[] = [];
@@ -95,12 +99,17 @@ test("checkout controls remain previews and service checks are read-only", async
   await page.goto("/orders/new");
   for (const label of [
     "Customer ID",
-    "Items",
     "Amount",
     "Currency",
-    "Shipping address",
+    "Recipient",
+    "Address line 1",
   ])
-    await expect(page.getByLabel(label, { exact: true })).toBeDisabled();
+    await expect(
+      page.getByRole(label === "Currency" ? "combobox" : "textbox", {
+        name: label,
+        exact: true,
+      }),
+    ).toBeEnabled();
   await expect(
     page.getByRole("button", { name: "Create order" }),
   ).toBeDisabled();

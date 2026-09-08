@@ -73,6 +73,10 @@ RTK Query is used for typed queries/mutations and server-data caching, as reques
 
 ## Step 6 — Build the Create Order Form
 
+**Status:** Implemented at `/orders/new`: seeded demo-product selection, quantities, customer ID, manual BDT/USD amount, shipping address, local summary, and shared-contract validation with field errors. Decimal strings convert exactly to integer minor units. “Validate order” performs local validation only; “Create order” stays disabled until Step 7. Drafts remain memory-only. See [checkout documentation](apps/web/README.md#step-6--checkout-form-and-local-validation).
+
+**Verification:** Workspace typechecks and the production build passed. All 86 checks passed across suite runs and targeted reruns: 50 desktop/mobile browser checks, 20 state/provider checks, 10 API checks, 5 component checks, and 1 isolated real-proxy integration check. Ambiguous browser-test selectors were corrected; the final two checkout layout checks passed on rerun. Desktop/mobile checkout screenshots were reviewed. Real order submission and backend acceptance are Step 7 work, not verified here.
+
 - Allow selection of seeded demo products.
 - Add inputs for quantity, customer ID, amount, and currency.
 - Build the shipping address form.

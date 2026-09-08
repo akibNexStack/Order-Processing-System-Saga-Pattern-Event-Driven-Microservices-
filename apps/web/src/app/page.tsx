@@ -48,8 +48,9 @@ export default function HomePage() {
         }
       />
       <PreviewNotice>
-        Order actions are still previews. Live health and readiness checks are
-        available on the Services screen.
+        You can prepare and validate a demo checkout, but order submission is
+        not connected yet. Live health checks are available on the Services
+        screen.
       </PreviewNotice>
       <div className="area-grid">
         {areas.map((area) => (

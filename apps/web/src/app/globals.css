@@ -759,6 +759,94 @@ h2 {
   font-size: 13px;
   line-height: 1.7;
 }
+.checkout-notice {
+  padding: 16px 20px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: white;
+  line-height: 1.7;
+}
+.checkout-card {
+  padding: 24px;
+  min-width: 0;
+}
+.checkout-fields {
+  border: 0;
+  padding: 0;
+  margin: 0 0 28px;
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+.checkout-fields > legend {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 18px;
+}
+.demo-products {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px;
+  min-width: 0;
+}
+.demo-products > legend {
+  padding-inline: 6px;
+  font-weight: 600;
+}
+.demo-products > p {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+.demo-product {
+  padding-top: 18px;
+  display: grid;
+  gap: 12px;
+}
+.demo-product-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-weight: 600;
+}
+.demo-product-choice input {
+  margin-top: 3px;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+}
+.demo-product-choice small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+  margin-top: 5px;
+}
+.checkout-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-block: 20px 12px;
+}
+.checkout-valid {
+  margin-top: 16px;
+  color: var(--accent);
+  font-weight: 600;
+}
+.checkout-summary {
+  align-self: start;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.checkout-summary ul {
+  list-style: disc;
+  padding-left: 20px;
+  line-height: 1.8;
+}
+.checkout-summary .dependency-checks > div {
+  flex-wrap: wrap;
+}
 .loading-state {
   display: flex;
   align-items: center;

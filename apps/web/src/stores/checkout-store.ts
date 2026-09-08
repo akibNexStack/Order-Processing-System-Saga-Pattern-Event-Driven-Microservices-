@@ -1,6 +1,10 @@
 import { createStore } from "zustand/vanilla";
 import {
-  CreateOrderRequestSchema,
+  parseAmountMinor,
+  formatMinor,
+  buildCreateOrderRequest,
+} from "../lib/checkout/form";
+import {
   type CreateOrderRequest,
   type OrderPayload,
 } from "@saga/shared/contracts";
@@ -11,6 +15,8 @@ export type CheckoutDraft = Omit<OrderPayload, "amountMinor"> & {
 export type SubmissionPhase = "idle" | "submitting" | "uncertain" | "settled";
 export interface CheckoutState {
   draft: CheckoutDraft;
+  amountInput: string;
+  setAmountInput: (input: string) => boolean;
   idempotencyKey: string | null;
   submission: SubmissionPhase;
   request: CreateOrderRequest | null;
@@ -52,14 +58,30 @@ export function createCheckoutStore(
 ) {
   return createStore<CheckoutState>()((set, get) => ({
     draft: emptyDraft(),
+    amountInput: "",
     idempotencyKey: null,
     submission: "idle",
     request: null,
     error: null,
+    setAmountInput(amountInput) {
+      if (get().submission !== "idle") return false;
+      set({
+        amountInput,
+        draft: { ...get().draft, amountMinor: parseAmountMinor(amountInput) },
+        error: null,
+      });
+      return true;
+    },
     updateDraft(patch) {
       if (get().submission !== "idle") return false;
       set({
         draft: structuredClone({ ...get().draft, ...patch }),
+        ...(Object.hasOwn(patch, "amountMinor")
+          ? {
+              amountInput:
+                patch.amountMinor == null ? "" : formatMinor(patch.amountMinor),
+            }
+          : {}),
         error: null,
       });
       return true;
@@ -76,10 +98,7 @@ export function createCheckoutStore(
         });
         return null;
       }
-      const parsed = CreateOrderRequestSchema.safeParse({
-        idempotencyKey: key,
-        payload: get().draft,
-      });
+      const parsed = buildCreateOrderRequest(get().draft, key);
       if (!parsed.success) {
         set({
           error: parsed.error.issues
@@ -124,6 +143,7 @@ export function createCheckoutStore(
       if (["submitting", "uncertain"].includes(get().submission)) return false;
       set({
         draft: emptyDraft(),
+        amountInput: "",
         idempotencyKey: null,
         submission: "idle",
         request: null,

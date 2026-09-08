@@ -10,7 +10,7 @@
   ],
   "scripts": {
     "dev:web": "npm run dev --workspace @saga/web",
-    "test:web": "npm run test:ui --workspace @saga/web && npm run build:web && npm run test:e2e --workspace @saga/web",
+    "test:web": "npm run test:ui --workspace @saga/web && npm run test:api --workspace @saga/web && npm run build:web && npm run test:e2e --workspace @saga/web && npm run test:api:e2e --workspace @saga/web",
     "dev:all": "concurrently -k -n backend,web \"npm run dev\" \"npm run dev:web\"",
     "build:web": "npm run build --workspace @saga/web",
     "start:web": "npm run start --workspace @saga/web",

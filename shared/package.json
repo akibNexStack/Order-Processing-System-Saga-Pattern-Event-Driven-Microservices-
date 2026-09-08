@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./contracts": {
+      "types": "./dist/contracts.d.ts",
+      "default": "./dist/contracts.js"
+    },
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"

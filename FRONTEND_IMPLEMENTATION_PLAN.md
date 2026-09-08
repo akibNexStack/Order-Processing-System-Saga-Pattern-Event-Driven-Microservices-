@@ -1,6 +1,6 @@
 # Frontend Implementation Plan
 
-Build a Next.js App Router frontend with TypeScript, Zustand, and Tailwind CSS for the existing order-processing microservices.
+Build a Next.js App Router frontend with TypeScript, RTK Query for server data, Zustand for local UI state, and Tailwind CSS for the existing order-processing microservices.
 
 The implementation is divided into 12 steps. The first version will use the existing microservice APIs. Features requiring new backend capabilities will remain separate follow-up work.
 
@@ -18,7 +18,7 @@ The implementation is divided into 12 steps. The first version will use the exis
 
 ## Step 2 — Build the Application Layout and Navigation
 
-**Status:** Implemented and verified. All five routes share a responsive sidebar, header, main content area, and mobile navigation drawer. Reusable UI primitives and loading, error, and not-found states are included. Workspace typechecks, the production build, 5 component checks, and 22 desktop/mobile Chromium browser checks passed. The browser checks cover navigation, focus handling, responsive overflow, and automated accessibility scans. See [verification details](apps/web/README.md#verification-result). Steps 3–12 remain planned; the screens explicitly show that live data and order actions are not connected yet.
+**Status:** Implemented and verified. All five routes share a responsive sidebar, header, main content area, and mobile navigation drawer. Reusable UI primitives and loading, error, and not-found states are included. Workspace typechecks, the production build, 5 component checks, and 22 desktop/mobile Chromium browser checks passed. The browser checks cover navigation, focus handling, responsive overflow, and automated accessibility scans. See [verification details](apps/web/README.md#verification-result). The screens explicitly show that live data and order actions are not connected yet; screen integration remains in later steps.
 
 - Create the sidebar, header, and main content layout.
 - Add navigation for Overview, Create Order, Orders, Attention, and Services.
@@ -29,6 +29,8 @@ The implementation is divided into 12 steps. The first version will use the exis
 
 ## Step 3 — Build the Backend Connection Layer
 
+**Status:** Implemented with RTK Query, a per-provider Redux store, shared browser-safe contracts, and an allowlisted Next.js proxy for all 23 existing HTTP endpoint shapes. See [connection-layer documentation and test commands](apps/web/README.md#step-3--backend-connection-and-rtk-query). Screen integration and live infrastructure verification remain separate from this connection-layer step.
+
 - Store the four service URLs in server-only environment variables.
 - Use Next.js Route Handlers to proxy specific backend endpoints.
 - Create typed API functions for the client.
@@ -38,11 +40,12 @@ The implementation is divided into 12 steps. The first version will use the exis
 
 **Completion outcome:** Browser requests reach the microservices through Next.js.
 
+RTK Query is used for typed queries/mutations and server-data caching, as requested. HTTP responses remain uncached; RTK subscriptions share in-memory data and support explicit refetch/polling.
+
 ## Step 4 — Implement Zustand Stores and State Lifecycles
 
 - Create `checkoutStore` for selected items, form drafts, the idempotency key, and submission state.
-- Create `orderStore` for order details, history, participant status, and request state.
-- Create `serviceStore` for service health and readiness.
+- Use Step 3's RTK Query cache for order details, history, participant status, health/readiness, and request state; do not duplicate this server data in Zustand.
 - Create `uiStore` for navigation state and UI preferences.
 - Implement the store provider and hydration handling.
 - Persist recent order IDs and necessary UI preferences.

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/layout/app-shell";
+import { ApiProvider } from "@/components/providers/api-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -14,7 +15,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <AppShell>{children}</AppShell>
+        <ApiProvider>
+          <AppShell>{children}</AppShell>
+        </ApiProvider>
       </body>
     </html>
   );

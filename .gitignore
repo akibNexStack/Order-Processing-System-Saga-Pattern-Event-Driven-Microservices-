@@ -3,6 +3,8 @@ node_modules/
 
 # Build output and TypeScript incremental caches
 dist/
+.next/
+out/
 *.tsbuildinfo
 
 # Local environment values; keep templates in Git

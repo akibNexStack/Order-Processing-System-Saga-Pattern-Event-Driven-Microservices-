@@ -250,7 +250,7 @@ explain the individual service contracts and implementation decisions.
 Run commands from the repository root (Node.js, npm, Docker, and Docker Compose required):
 
 ```bash
-# Install dependencies for every service through npm workspaces
+# Install dependencies for all services and the frontend through npm workspaces
 npm ci
 
 # Create missing local environment files without overwriting existing configuration
@@ -268,6 +268,20 @@ npm run db:seed
 # Start all four service development servers
 npm run dev
 ```
+
+The Next.js frontend foundation is in `apps/web` and runs on **3004**:
+
+```bash
+# Frontend only (the starter page does not require backend infrastructure)
+npm run dev:web
+
+# Alternatively, start the frontend and all four backend services together
+npm run dev:all
+```
+
+Run only one of these development commands at a time. See the
+[frontend setup guide](apps/web/README.md) for build and production commands.
+Order screens and API integration are planned in later frontend steps.
 
 The orchestrator listens on port **3000**, payment on **3001**, inventory on **3002**,
 and shipping on **3003**. Each exposes `GET /health` for liveness and `GET /ready` for

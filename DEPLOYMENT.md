@@ -1,6 +1,5 @@
 # Vercel frontend + Render backend
 
-**For the requested free deployment, follow [FREE_DEPLOYMENT.md](FREE_DEPLOYMENT.md).**
 The default `render.yaml` now creates four Free web services and asks for external
 Neon PostgreSQL and CloudAMQP URLs. The paid setup below uses `render.paid.yaml`.
 

@@ -1,7 +1,7 @@
 # Free demo: four Render Free web services.
 # First create four PostgreSQL databases on Neon Free and one CloudAMQP
 # Little Lemur RabbitMQ instance. Enter their URLs when Render prompts.
-# See FREE_DEPLOYMENT.md for sleep, quota, and startup instructions.
+# Free services can sleep; wake all four and verify readiness before a demo.
 services:
   - type: web
     name: saga-orders

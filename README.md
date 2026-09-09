@@ -4,9 +4,11 @@ A distributed order-processing system built to demonstrate how to safely coordin
 
 Built with **Hono**, **TypeScript**, **PostgreSQL**, and **RabbitMQ**.
 
+**Using the application?** Start with the [User Guide](docs/USER_GUIDE.md) for checkout, order tracking, recovery, and demo instructions. Browse the [documentation index](docs/README.md) for setup and technical references.
+
 ---
 
-**All 10 implementation parts are complete and locally verified.**
+The project includes a responsive Next.js dashboard and four backend services.
 The runtime uses RabbitMQ commands/results with transactional outboxes and automatic recovery.
 Order POST returns asynchronous progress; poll the status endpoint for completion.
 See the [complete startup, validation, and troubleshooting runbook](docs/PART_10_VALIDATION.md), [RabbitMQ transport](docs/PART_8_MESSAGING.md), and [automatic recovery](docs/PART_9_RECOVERY.md).
@@ -21,7 +23,7 @@ See the [complete startup, validation, and troubleshooting runbook](docs/PART_10
 6. [Tech Stack](#6-tech-stack)
 7. [Project Structure](#7-project-structure)
 8. [Database Schema](#8-database-schema)
-9. [Implementation Roadmap](#9-implementation-roadmap)
+9. [Platform Features](#9-platform-features)
 10. [Local Development Setup](#10-local-development-setup)
 11. [Testing Strategy](#11-testing-strategy)
 12. [Interview / Design-Review Talking Points](#12-interview--design-review-talking-points)
@@ -204,7 +206,7 @@ saga-order-system/
 
 ## 8. Database Schema
 
-Part 2 provides service-owned Drizzle schemas and generated SQL migrations:
+Each service owns its Drizzle schemas and generated SQL migrations:
 
 | Service | Tables | Schema |
 |---|---|---|
@@ -213,28 +215,22 @@ Part 2 provides service-owned Drizzle schemas and generated SQL migrations:
 | Shipping | shipments, shipment_cancellations, command_receipts | [schema.ts](services/shipping-service/src/db/schema.ts) |
 | Orchestrator | orders, order_items, saga_instances, saga_transitions | [schema.ts](services/order-orchestrator/src/db/schema.ts) |
 
-Amounts use bounded integer minor units, matching Part 1 contracts. Command receipts
-provide database uniqueness for idempotency; service handlers will implement atomic
-business operations in subsequent parts. See [database design, seed data, and tests](docs/PART_2_DATABASES.md).
+Amounts use bounded integer minor units, matching the shared contracts. Command receipts
+provide database uniqueness for idempotency; service handlers apply atomic local
+business operations. See [database design, seed data, and tests](docs/PART_2_DATABASES.md).
 
 ---
 
-## 9. Implementation Roadmap
+## 9. Platform Features
 
-### Phase 1 — Independent Services
-Build `payment-service`, `inventory-service`, `shipping-service` in isolation. Each exposes a forward action and a compensating action, both idempotent. **Exit criteria:** every service is independently testable via curl/Postman.
+- Create demo orders with validated customer, item, amount, and shipping details.
+- Track payment, inventory reservation/finalization, shipping, and compensation through persisted saga state and event history.
+- Look up orders, inspect participant records, and resume eligible interrupted workflows.
+- Monitor independent health and readiness checks for all four services.
+- Open **Platform Features** in the frontend for a section-by-section user guide.
+- Use the [Postman collection](postman/README.md) for direct API commands and controlled failure scenarios.
 
-### Phase 2 — Orchestrator (HTTP-based first)
-Build the orchestrator with persisted saga state, calling services directly over HTTP to keep the first version simple. **Exit criteria:** a full happy-path order completes and its state transitions are visible in `saga_instances`.
-
-### Phase 3 — Compensation
-Implement the reverse-order compensation flow and prove it by forcing an inventory failure. **Exit criteria:** a forced failure results in a refund and a `FAILED` saga status, with no orphaned charges.
-
-### Phase 4 — Event-Driven Migration
-Replace direct HTTP calls with RabbitMQ publish/subscribe. Introduce idempotent consumers. **Exit criteria:** no direct service-to-service HTTP calls remain in the saga flow.
-
-### Phase 5 — Observability & Recovery
-Add the recovery worker, structured logging, and a simple status endpoint/dashboard. **Exit criteria:** killing the orchestrator mid-saga and restarting it results in the saga completing correctly.
+Payment and shipping are simulated. Use fictional data; this is not a production store or a real payment integration. See the [frontend guide](apps/web/README.md) for screens, setup, and limitations.
 
 ---
 
@@ -281,9 +277,9 @@ npm run dev:all
 
 Run only one of these development commands at a time. See the
 [frontend setup guide](apps/web/README.md) for build and production commands.
-The responsive layout includes Overview, Create Order, Orders, Attention, and
-Services. These are clearly labeled previews; API integration is planned in later
-frontend steps. Run `npm run test:web` for the frontend component and browser suite
+The responsive frontend includes Overview, Platform Features, Create Order, Orders,
+Attention, and Services, connected through the server-side API proxy.
+Run `npm run test:web` for the frontend component and browser suite
 after installing Chromium as described in the frontend guide.
 
 The orchestrator listens on port **3000**, payment on **3001**, inventory on **3002**,
@@ -349,7 +345,6 @@ Be ready to explain, precisely:
 
 ## Deployment and release verification
 
-For free demo hosting, follow [FREE_DEPLOYMENT.md](FREE_DEPLOYMENT.md).
 The default Render Blueprint uses Free web services with external Neon and CloudAMQP.
 
 For the Vercel frontend + Render backend setup, access-protection requirements,

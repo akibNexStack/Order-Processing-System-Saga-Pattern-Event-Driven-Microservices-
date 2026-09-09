@@ -1,5 +1,6 @@
 import { RecoveryWorker } from './saga/recoveryWorker.js';
 import 'dotenv/config';
+import { protectService } from '@saga/shared/http';
 import { serve } from '@hono/node-server';
 import { z } from 'zod';
 import { createDatabase } from './db/client.js';
@@ -22,7 +23,7 @@ const messaging = new RabbitWorker(pool, 'orders', envelope => service.receive(e
 });
 messaging.start();
 recovery.start();
-const server = serve({ fetch: createApp(service, () => readiness(pool, messaging, recovery)()).fetch, port }, info => {
+const server = serve({ fetch: protectService(createApp(service, () => readiness(pool, messaging, recovery)()).fetch), port }, info => {
   log({ event: 'http_started' });
 });
 let stopping = false;

@@ -197,6 +197,9 @@ test("mobile drawer traps focus, closes correctly, and resets after resize", asy
 test("pages fit narrow phones, tablets, and desktop without horizontal scrolling", async ({
   page,
 }) => {
+  // This matrix navigates every page at four widths; it needs more time than
+  // a single-page check on shared CI runners. Keep all overflow assertions.
+  test.slow();
   for (const width of [320, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     for (const target of pages) {

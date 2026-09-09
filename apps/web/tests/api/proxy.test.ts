@@ -4,6 +4,23 @@ import { parseBackendConfig } from "../../src/lib/server/config";
 import { proxyRequest, resolveTarget } from "../../src/lib/server/proxy";
 
 const config = parseBackendConfig({});
+test("hosted proxy requires a secret and replaces browser authorization", async () => {
+  assert.throws(() => parseBackendConfig({ VERCEL: "1" }));
+  assert.throws(() => parseBackendConfig({ BACKEND_API_TOKEN: "short" }));
+  const secret = "s".repeat(48);
+  const hosted = parseBackendConfig({ VERCEL: "1", BACKEND_API_TOKEN: secret });
+  const response = await proxyRequest(new Request("https://demo.test/api/orders/x", {
+    headers: { authorization: "Bearer attacker", cookie: "private=value" },
+  }), ["orders", "x"], hosted, async (_url, init) => {
+    const headers = new Headers(init?.headers);
+    assert.equal(headers.get("authorization"), `Bearer ${secret}`);
+    assert.equal(headers.get("cookie"), null);
+    return Response.json({ ok: true });
+  });
+  assert.equal(response.status, 200);
+  assert.equal((await response.text()).includes(secret), false);
+  assert.equal(response.headers.get("authorization"), null);
+});
 const req = (path = "orders/x", init?: RequestInit) =>
   new Request(`http://localhost/api/${path}`, init);
 

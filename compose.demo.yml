@@ -1,0 +1,140 @@
+name: saga-demo
+
+x-db: &db
+  image: postgres:17
+  restart: unless-stopped
+  environment:
+    POSTGRES_USER: saga
+    POSTGRES_PASSWORD: saga
+    POSTGRES_DB: saga
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -U saga -d saga"]
+    interval: 5s
+    timeout: 3s
+    retries: 20
+
+x-app: &app
+  image: saga-demo-app:local
+  build: .
+  init: true
+  restart: unless-stopped
+  stop_grace_period: 30s
+  depends_on:
+    migrate:
+      condition: service_completed_successfully
+    rabbitmq:
+      condition: service_healthy
+  healthcheck:
+    test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:'+process.env.PORT+'/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+    interval: 10s
+    timeout: 5s
+    retries: 12
+    start_period: 20s
+
+x-env: &env
+  RABBITMQ_URL: amqp://saga:saga@rabbitmq:5672
+  RABBITMQ_PREFIX: saga.demo.v1
+
+services:
+  payment-db:
+    <<: *db
+    volumes: ["payment-data:/var/lib/postgresql/data"]
+  inventory-db:
+    <<: *db
+    volumes: ["inventory-data:/var/lib/postgresql/data"]
+  shipping-db:
+    <<: *db
+    volumes: ["shipping-data:/var/lib/postgresql/data"]
+  order-db:
+    <<: *db
+    volumes: ["order-data:/var/lib/postgresql/data"]
+  rabbitmq:
+    image: rabbitmq:4-management
+    hostname: rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: saga
+      RABBITMQ_DEFAULT_PASS: saga
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "+S 2:2"
+    volumes: ["rabbit-data:/var/lib/rabbitmq"]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+  migrate:
+    image: saga-demo-app:local
+    build: .
+    init: true
+    restart: "no"
+    command: ["node", "scripts/migrate-demo.mjs"]
+    environment:
+      PAYMENT_DATABASE_URL: postgresql://saga:saga@payment-db:5432/saga
+      INVENTORY_DATABASE_URL: postgresql://saga:saga@inventory-db:5432/saga
+      SHIPPING_DATABASE_URL: postgresql://saga:saga@shipping-db:5432/saga
+      ORDER_DATABASE_URL: postgresql://saga:saga@order-db:5432/saga
+    depends_on:
+      payment-db: { condition: service_healthy }
+      inventory-db: { condition: service_healthy }
+      shipping-db: { condition: service_healthy }
+      order-db: { condition: service_healthy }
+  payment:
+    <<: *app
+    command: ["node", "services/payment-service/dist/index.js"]
+    environment:
+      <<: *env
+      PORT: 3001
+      DATABASE_URL: postgresql://saga:saga@payment-db:5432/saga
+      PAYMENT_SIMULATION_MODE: success
+  inventory:
+    <<: *app
+    command: ["node", "services/inventory-service/dist/index.js"]
+    environment:
+      <<: *env
+      PORT: 3002
+      DATABASE_URL: postgresql://saga:saga@inventory-db:5432/saga
+  shipping:
+    <<: *app
+    command: ["node", "services/shipping-service/dist/index.js"]
+    environment:
+      <<: *env
+      PORT: 3003
+      DATABASE_URL: postgresql://saga:saga@shipping-db:5432/saga
+      SHIPPING_SIMULATION_MODE: success
+  orders:
+    <<: *app
+    command: ["node", "services/order-orchestrator/dist/index.js"]
+    environment:
+      <<: *env
+      PORT: 3000
+      DATABASE_URL: postgresql://saga:saga@order-db:5432/saga
+      SAGA_COMMAND_TIMEOUT_MS: 30000
+      RECOVERY_INTERVAL_MS: 1000
+  web:
+    <<: *app
+    ports: ["127.0.0.1:${DEMO_WEB_PORT:-3004}:3004"]
+    command: ["node", "node_modules/next/dist/bin/next", "start", "apps/web", "--hostname", "0.0.0.0", "--port", "3004"]
+    environment:
+      ORDERS_SERVICE_URL: http://orders:3000
+      PAYMENT_SERVICE_URL: http://payment:3001
+      INVENTORY_SERVICE_URL: http://inventory:3002
+      SHIPPING_SERVICE_URL: http://shipping:3003
+      BACKEND_TIMEOUT_MS: 10000
+    depends_on:
+      orders: { condition: service_healthy }
+      payment: { condition: service_healthy }
+      inventory: { condition: service_healthy }
+      shipping: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3004').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+volumes:
+  payment-data:
+  inventory-data:
+  shipping-data:
+  order-data:
+  rabbit-data:

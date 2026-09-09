@@ -3,6 +3,7 @@ import type { ServiceName } from "../api/contracts";
 export interface BackendConfig {
   origins: Record<ServiceName, string>;
   timeoutMs: number;
+  apiToken?: string;
 }
 
 // Pure parser: process.env is read only in the server-only entrypoint.
@@ -35,5 +36,10 @@ export function parseBackendConfig(
   const timeoutMs = Number(env.BACKEND_TIMEOUT_MS ?? 10000);
   if (!Number.isInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 120000)
     throw new Error("Invalid BACKEND_TIMEOUT_MS");
-  return { origins, timeoutMs };
+  const apiToken = env.BACKEND_API_TOKEN;
+  if (apiToken && (apiToken.length < 32 || /\s/.test(apiToken)))
+    throw new Error("Invalid BACKEND_API_TOKEN");
+  if (env.VERCEL === "1" && !apiToken)
+    throw new Error("BACKEND_API_TOKEN is required on Vercel");
+  return { origins, timeoutMs, ...(apiToken ? { apiToken } : {}) };
 }

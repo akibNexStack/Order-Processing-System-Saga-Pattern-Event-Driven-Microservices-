@@ -9,6 +9,10 @@
     "apps/*"
   ],
   "scripts": {
+    "test:db:built": "node --test --test-isolation=none --test-reporter=spec tests/database/*.test.mjs",
+    "verify:release": "npm run typecheck && npm run build && SYSTEM_BROWSER_TEST=1 npm run test:backend:built && npm run test:ui -w @saga/web && npm run test:state -w @saga/web && npm run test:api -w @saga/web && npm run test:e2e -w @saga/web && npm run test:api:e2e -w @saga/web",
+    "test:system:browser:built": "SYSTEM_BROWSER_TEST=1 node --test --test-isolation=none --test-reporter=spec tests/system/*.test.mjs",
+    "test:backend:built": "node --test --test-isolation=none --test-reporter=spec shared/test/*.test.mjs tests/database/*.test.mjs tests/payment/*.test.mjs tests/inventory/*.test.mjs tests/shipping/*.test.mjs tests/orchestrator/*.test.mjs tests/messaging/*.test.mjs tests/recovery/*.test.mjs tests/system/*.test.mjs",
     "dev:web": "npm run dev --workspace @saga/web",
     "test:web": "npm run test:ui --workspace @saga/web && npm run test:state --workspace @saga/web && npm run test:api --workspace @saga/web && npm run build:web && npm run test:e2e --workspace @saga/web && npm run test:api:e2e --workspace @saga/web",
     "dev:all": "concurrently -k -n backend,web \"npm run dev\" \"npm run dev:web\"",

@@ -338,3 +338,20 @@ Responses must match the requested order and all item/order associations. HTTP 2
 The overview displays four independent readiness checks, the attention list, and the existing browser-local recent IDs. Readiness checks refresh on entry, focus, reconnect, and explicit refresh. Unavailable or incomplete readiness is shown as unknown rather than ready. Recent orders respect hydration, opt-out, and unavailable storage; management remains on `/orders`. Opening the overview or attention list never submits a resume request.
 
 Verification on 2026-09-09: the final production build including TypeScript passed, along with **186 checks**: all **130 desktop/mobile browser tests**, 36 state/provider tests, 14 API tests, 5 UI tests, and the production Next-proxy integration test. The full browser run completed with no failures or skips in 7.1 minutes using `PLAYWRIGHT_PORT=3114 npm run test:e2e --workspace @saga/web -- --workers=2`. It covers all implemented frontend sections, including Step 11 response outcomes (200/202/422), uncertain 503/404/409 and malformed/unrelated replies, duplicate resume clicks and navigation, normalized IDs, stale GET protection, attention limits/errors, independent readiness, recent orders, history links, accessibility, and narrow layouts. Desktop/mobile overview screenshots were reviewed. The integration test exercises attention → order → resume → overview through the actual Next proxy using an isolated HTTP backend. These checks do not exercise real PostgreSQL/RabbitMQ/providers.
+
+## Step 12 — Release verification and hosted deployment
+
+The final verification now includes real browser → Next.js proxy → microservices →
+PostgreSQL/RabbitMQ checkout, response-loss retry, compensation, reload, and terminal
+recovery protection. Run `npm run verify:release` from the repository root.
+
+See [verification evidence](../../STEP12_VERIFICATION.md) and the
+[Vercel + Render deployment runbook](../../DEPLOYMENT.md). Hosted access protection
+and an actual cloud smoke check remain release gates; the backend's shared token
+is not a substitute for protecting the Vercel application.
+
+Verification on 2026-09-09: all 130 browser cases passed across the full run
+and the layout-matrix rerun, plus 36 state, 15 API, 5 component, and 1 live
+Next-proxy checks. The separate real-stack suite passed all 12 checks.
+Node 24 builds and workspace type checks passed. See the evidence document
+for initial timeout details, development-tool advisories, and release gates.

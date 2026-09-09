@@ -34,7 +34,7 @@ const get = async url => {
   catch { return { status: 0 }; }
 };
 
-test('Independent service processes, crash recovery and isolated broker restart', { timeout: 240000 }, async t => {
+test('Independent service processes, crash recovery and isolated broker restart', { timeout: 480000 }, async t => {
   const fixtures = [], children = [], services = {}, dbs = {};
   const container = `saga-system-test-${randomUUID()}`;
   const prefix = `saga.system.${randomUUID()}`;
@@ -101,6 +101,13 @@ test('Independent service processes, crash recovery and isolated broker restart'
     const finish = (id, expected = 'COMPLETED') => poll(() => state(id), r => r.body?.saga.status === expected);
     const stock = async req => (await dbs.inventory.pool.query('SELECT available_stock FROM products WHERE id=$1', [req.payload.items[0].productId])).rows[0].available_stock;
     const payment = async id => (await dbs.payment.pool.query('SELECT * FROM payments WHERE order_id=$1', [id])).rows[0];
+
+    if (process.env.SYSTEM_BROWSER_TEST === '1') {
+      await t.test('real browser checkout, lost response retry, reload, compensation and terminal recovery guard', async () => {
+        const { checkBrowser } = await import('./browser-check.mjs');
+        await checkBrowser({ services, dbs, children, freePort, poll, finish, payment, stop });
+      });
+    }
 
     await t.test('production entrypoints expose readiness and complete the event-driven checkout', async () => {
       for (const service of Object.values(services)) assert.equal((await get(`${service.base}/ready`)).status, 200);

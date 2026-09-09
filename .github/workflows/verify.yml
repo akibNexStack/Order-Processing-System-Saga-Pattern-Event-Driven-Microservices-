@@ -1,0 +1,39 @@
+name: Release verification
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      CI: "true"
+      PLAYWRIGHT_PORT: "3114"
+      TEST_PAYMENT_DATABASE_URL: postgresql://saga:saga@127.0.0.1:5433/saga
+      TEST_INVENTORY_DATABASE_URL: postgresql://saga:saga@127.0.0.1:5434/saga
+      TEST_SHIPPING_DATABASE_URL: postgresql://saga:saga@127.0.0.1:5435/saga
+      TEST_ORDER_DATABASE_URL: postgresql://saga:saga@127.0.0.1:5436/saga
+      TEST_RABBITMQ_URL: amqp://saga:saga@127.0.0.1:5672
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: docker compose up -d --wait
+      - run: npm run verify:release
+      - run: npm audit --omit=dev --audit-level=high
+      - run: docker build -f Dockerfile.backend -t saga-backend:ci .
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-failure-evidence
+          path: |
+            apps/web/test-results
+            apps/web/playwright-report
+      - if: always()
+        run: docker compose down

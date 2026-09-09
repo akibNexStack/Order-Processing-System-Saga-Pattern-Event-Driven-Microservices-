@@ -1,6 +1,7 @@
 import { RabbitWorker, participantHandler, readiness, structuredLogger } from '@saga/shared/messaging';
 import type { CommandFor } from '@saga/shared';
 import 'dotenv/config';
+import { protectService } from '@saga/shared/http';
 import { serve } from '@hono/node-server';
 import { z } from 'zod';
 import { createApp } from './app.js';
@@ -18,7 +19,7 @@ const { pool } = createDatabase(databaseUrl);
 const { pool: providerPool } = createDatabase(databaseUrl);
 const service = new PaymentService(pool, new LocalPaymentProvider(providerPool, mode), timeout);
 const app = createApp(service, () => readiness(pool, messaging)());
-const server = serve({ fetch: app.fetch, port }, (info) => {
+const server = serve({ fetch: protectService(app.fetch), port }, (info) => {
   log({ event: 'http_started' });
 });
 const messaging = new RabbitWorker(pool, 'payment', participantHandler(pool, 'payment',

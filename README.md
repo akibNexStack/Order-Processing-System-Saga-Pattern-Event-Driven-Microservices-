@@ -346,3 +346,9 @@ Be ready to explain, precisely:
 3. Why orchestration instead of choreography here? *(centralized visibility and easier compensation logic for a 3+ step flow)*
 4. How is a compensating action different from a database rollback? *(it's a new, idempotent forward operation — not guaranteed to be a perfect physical undo)*
 5. How do you prevent overselling stock during reservation? *(atomic reservations with ordered product locks; explicit release/finalization, with automatic expiry disabled until coordinated recovery)*
+
+## Deployment and release verification
+
+For the Vercel frontend + Render backend setup, access-protection requirements,
+environment variables, migrations, and smoke checks, see [DEPLOYMENT.md](DEPLOYMENT.md).
+Run `npm run verify:release` against disposable local test infrastructure before release.

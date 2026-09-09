@@ -184,6 +184,7 @@ export async function proxyRequest(
         : undefined;
     controller.signal.throwIfAborted();
     const headers = new Headers({ Accept: "application/json" });
+    if (config.apiToken) headers.set("Authorization", `Bearer ${config.apiToken}`);
     const contentType = request.headers.get("content-type");
     if (contentType) headers.set("Content-Type", contentType);
     const url = new URL(target.path, config.origins[target.service]);

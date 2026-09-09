@@ -142,9 +142,17 @@ export class OrderService {
   }
 
   async attention() {
-    return drizzle(this.pool).select({ orderId: sagaInstances.orderId, sagaId: sagaInstances.id, status: sagaInstances.status,
-      operation: sagaInstances.currentOperation, reason: sagaInstances.interventionReason, updatedAt: sagaInstances.updatedAt })
+    const rows = await drizzle(this.pool).select()
       .from(sagaInstances).where(isNotNull(sagaInstances.interventionReason)).orderBy(desc(sagaInstances.updatedAt)).limit(100);
+    return rows.map(saga => {
+      let operation = saga.currentOperation;
+      if (saga.status === 'COMPENSATING') {
+        // Inconsistent progress still needs to appear in the attention queue.
+        try { operation = nextCompensation(saga)?.operation ?? operation; } catch { /* retain forensic cursor */ }
+      }
+      return { orderId: saga.orderId, sagaId: saga.id, status: saga.status, operation,
+        reason: saga.interventionReason, updatedAt: saga.updatedAt };
+    });
   }
 
   async status(orderId: string) {

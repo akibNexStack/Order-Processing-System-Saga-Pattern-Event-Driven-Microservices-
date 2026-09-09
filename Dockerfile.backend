@@ -1,0 +1,22 @@
+FROM node:24-bookworm-slim AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY shared/package.json shared/package.json
+COPY services/payment-service/package.json services/payment-service/package.json
+COPY services/inventory-service/package.json services/inventory-service/package.json
+COPY services/shipping-service/package.json services/shipping-service/package.json
+COPY services/order-orchestrator/package.json services/order-orchestrator/package.json
+COPY apps/web/package.json apps/web/package.json
+RUN npm ci
+COPY shared ./shared
+COPY services ./services
+COPY tsconfig.json ./
+COPY scripts ./scripts
+RUN npm run build -w @saga/shared && npm run build -w payment-service && npm run build -w inventory-service && npm run build -w shipping-service && npm run build -w order-orchestrator
+RUN npm prune --omit=dev
+FROM node:24-bookworm-slim
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=build --chown=node:node /app /app
+USER node
+CMD ["node", "scripts/render-start.mjs", "order-orchestrator"]

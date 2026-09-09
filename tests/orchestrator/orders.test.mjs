@@ -205,6 +205,10 @@ test('HTTP order orchestration with all service databases', async t => {
           const first = await post(failing, req);
           assert.equal(first.status, 202); assert.equal(first.body.saga.status, 'COMPENSATING');
           assert.equal(first.body.requiresCompensation, true);
+          await dbs.ORDER.pool.query("UPDATE saga_instances SET intervention_reason='TEST_RETRY_EXHAUSTED' WHERE order_id=$1", [first.body.order.id]);
+          const attention = await (await app.request('/orders/attention')).json();
+          assert.equal(attention.orders.find(item => item.orderId === first.body.order.id).operation, operation);
+          await dbs.ORDER.pool.query('UPDATE saga_instances SET intervention_reason=NULL WHERE order_id=$1', [first.body.order.id]);
           assert.deepEqual(first.body.saga.compensatedSteps, operation === 'REFUND_PAYMENT' ? ['INVENTORY'] : []);
           if (operation === 'RELEASE_INVENTORY') assert.equal((await row('PAYMENT', 'payments', first.body.order.id)).status, 'CHARGED');
           const calls = [];

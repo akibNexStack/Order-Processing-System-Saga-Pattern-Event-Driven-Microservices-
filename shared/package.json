@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./http": {
+      "types": "./dist/http/auth.d.ts",
+      "default": "./dist/http/auth.js"
+    },
     "./contracts": {
       "types": "./dist/contracts.d.ts",
       "default": "./dist/contracts.js"

@@ -1,6 +1,7 @@
 import { RabbitWorker, participantHandler, readiness, structuredLogger } from '@saga/shared/messaging';
 import type { CommandFor } from '@saga/shared';
 import 'dotenv/config';
+import { protectService } from '@saga/shared/http';
 import { serve } from '@hono/node-server';
 import { z } from 'zod';
 import { createDatabase } from './db/client.js';
@@ -11,7 +12,7 @@ const log = structuredLogger('inventory-service');
 const port = z.coerce.number().int().min(1).max(65535).parse(process.env.PORT ?? 3002);
 const { pool } = createDatabase(z.string().min(1).parse(process.env.DATABASE_URL));
 const service = new InventoryService(pool);
-const server = serve({ fetch: createApp(service, () => readiness(pool, messaging)()).fetch, port }, info => {
+const server = serve({ fetch: protectService(createApp(service, () => readiness(pool, messaging)()).fetch), port }, info => {
   log({ event: 'http_started' });
 });
 const messaging = new RabbitWorker(pool, 'inventory', participantHandler(pool, 'inventory',

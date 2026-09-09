@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import pg from 'pg';
 import { parse } from 'dotenv';
 import { drizzle } from 'drizzle-orm/node-postgres';
@@ -35,9 +37,27 @@ for (const [service, prefix, tables, operation] of fixtures) {
       url.pathname = `/${databaseName}`;
       pool = new pg.Pool({ connectionString: url.href, connectionTimeoutMillis: 5000 });
       const db = drizzle(pool);
+      await t.test('idle connection loss is handled and the production pool reconnects', async () => {
+        const { createDatabase } = await import(`../../services/${service}/dist/db/client.js`);
+        const production = createDatabase(url.href);
+        try {
+          assert.equal(production.pool.listenerCount('error'), 1);
+          const lost = new Promise(resolve => production.pool.once('error', resolve));
+          const { rows: [client] } = await production.pool.query('SELECT pg_backend_pid() AS pid');
+          await admin.query('SELECT pg_terminate_backend($1)', [client.pid]);
+          await Promise.race([lost, new Promise((_, reject) => {
+            const timer = setTimeout(() => reject(new Error('Expected idle pool error')), 5000);
+            timer.unref();
+          })]);
+          assert.equal((await production.pool.query('SELECT 1 AS healthy')).rows[0].healthy, 1);
+        } finally { await production.pool.end(); }
+      });
       const migrationsFolder = fileURLToPath(new URL(`../../services/${service}/drizzle/`, import.meta.url));
       await t.test('migrates a fresh database and reruns without duplicate migrations', async () => {
-        await migrate(db, { migrationsFolder });
+        // Exercise the exact Render pre-deploy entrypoint on a fresh database.
+        await promisify(execFile)(process.execPath, [
+          fileURLToPath(new URL('../../scripts/migrate-service.mjs', import.meta.url)), service,
+        ], { env: { ...process.env, DATABASE_URL: url.href }, timeout: 30000 });
         const before = await pool.query('SELECT count(*)::int AS count FROM drizzle.__drizzle_migrations');
         assert.ok(before.rows[0].count > 0);
         await migrate(db, { migrationsFolder });

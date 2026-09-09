@@ -2,10 +2,17 @@
   "info": {
     "name": "Saga Order System — API and manual scenarios",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Import and run folders 01–09 in order with both simulation modes set to success. Run optional folders 10+ individually after following their prerequisites. Start each workflow at its first request; it generates fresh IDs. Subsequent requests reuse those IDs. Polling loops only in Collection Runner/CLI/Newman; with Send, repeat the poll manually. See postman/README.md for setup, stock consumption, and fault scenarios. Amounts are integer minor units; 12500 BDT means BDT 125.00. Providers are simulations. No authentication is configured in this local project."
+    "description": "Import and run folders 01–09 in order with both simulation modes set to success. Run optional folders 10+ individually after following their prerequisites. Start each workflow at its first request; it generates fresh IDs. Subsequent requests reuse those IDs. Polling loops only in Collection Runner/CLI/Newman; with Send, repeat the poll manually. See postman/README.md for setup, stock consumption, hosted authentication, and fault scenarios. Amounts are integer minor units; 12500 BDT means BDT 125.00. Providers are simulations. Hosted services require backend_api_token; local services accept an empty token."
   },
   "auth": {
-    "type": "noauth"
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{backend_api_token}}",
+        "type": "string"
+      }
+    ]
   },
   "variable": [
     {
@@ -26,6 +33,11 @@
     {
       "key": "shipping_url",
       "value": "http://localhost:3003",
+      "type": "string"
+    },
+    {
+      "key": "backend_api_token",
+      "value": "",
       "type": "string"
     },
     {

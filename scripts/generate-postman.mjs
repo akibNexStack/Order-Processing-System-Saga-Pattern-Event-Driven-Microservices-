@@ -5,6 +5,9 @@ const directory = new URL('../postman/', import.meta.url);
 const vars = {
   orders_url: 'http://localhost:3000', payment_url: 'http://localhost:3001',
   inventory_url: 'http://localhost:3002', shipping_url: 'http://localhost:3003',
+  // Kept blank in committed artifacts. Set only in a Postman environment for
+  // hosted services; local services intentionally accept an empty value.
+  backend_api_token: '',
   customer_id: '33333333-3333-4333-8333-333333333333',
   keyboard_id: '44444444-4444-4444-8444-444444444444',
   mouse_id: '55555555-5555-4555-8555-555555555555',
@@ -14,8 +17,8 @@ const vars = {
 const collection = {
   info: { name: 'Saga Order System — API and manual scenarios',
     schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
-    description: 'Import and run folders 01–09 in order with both simulation modes set to success. Run optional folders 10+ individually after following their prerequisites. Start each workflow at its first request; it generates fresh IDs. Subsequent requests reuse those IDs. Polling loops only in Collection Runner/CLI/Newman; with Send, repeat the poll manually. See postman/README.md for setup, stock consumption, and fault scenarios. Amounts are integer minor units; 12500 BDT means BDT 125.00. Providers are simulations. No authentication is configured in this local project.' },
-  auth: { type: 'noauth' }, variable: [], item: [],
+    description: 'Import and run folders 01–09 in order with both simulation modes set to success. Run optional folders 10+ individually after following their prerequisites. Start each workflow at its first request; it generates fresh IDs. Subsequent requests reuse those IDs. Polling loops only in Collection Runner/CLI/Newman; with Send, repeat the poll manually. See postman/README.md for setup, stock consumption, hosted authentication, and fault scenarios. Amounts are integer minor units; 12500 BDT means BDT 125.00. Providers are simulations. Hosted services require backend_api_token; local services accept an empty token.' },
+  auth: { type: 'bearer', bearer: [{ key: 'token', value: '{{backend_api_token}}', type: 'string' }] }, variable: [], item: [],
 };
 const script = (listen, code) => ({ listen, script: { type: 'text/javascript', exec: code.split('\n') } });
 let count = 0;
@@ -229,5 +232,19 @@ writeFileSync(new URL('Local.postman_environment.json', directory), JSON.stringi
   name: 'Saga System — Local', _postman_variable_scope: 'environment',
   values: Object.entries(vars).filter(([key]) => key.endsWith('_url') || ['customer_id', 'keyboard_id', 'mouse_id', 'empty_product_id', 'poll_max_attempts', 'poll_delay_ms', 'enabled_optional_folder', 'recovery_order_id'].includes(key))
     .map(([key, value]) => ({ key, value, enabled: true, type: 'default' })),
+}, null, 2) + '\n');
+const renderVars = {
+  ...vars,
+  orders_url: 'https://saga-orders.onrender.com',
+  payment_url: 'https://saga-payment.onrender.com',
+  inventory_url: 'https://saga-inventory.onrender.com',
+  shipping_url: 'https://saga-shipping.onrender.com',
+  backend_api_token: '',
+};
+writeFileSync(new URL('Render.postman_environment.json', directory), JSON.stringify({
+  name: 'Saga System — Render', _postman_variable_scope: 'environment',
+  values: Object.entries(renderVars)
+    .filter(([key]) => key.endsWith('_url') || key === 'backend_api_token' || ['customer_id', 'keyboard_id', 'mouse_id', 'empty_product_id', 'poll_max_attempts', 'poll_delay_ms', 'enabled_optional_folder', 'recovery_order_id'].includes(key))
+    .map(([key, value]) => ({ key, value, enabled: true, type: key === 'backend_api_token' ? 'secret' : 'default' })),
 }, null, 2) + '\n');
 console.log(`Generated ${count} requests in ${collection.item.length} folders.`);

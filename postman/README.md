@@ -2,6 +2,25 @@
 
 Import **Saga-System.postman_collection.json** into Postman. It contains 170 requests across 14 folders, with request bodies, headers, variables, and response assertions. Optionally import **Local.postman_environment.json** and select **Saga System — Local**. The collection also works without an environment.
 
+## Render environment
+
+Import both **Saga-System.postman_collection.json** and **Render.postman_environment.json**, then select **Saga System — Render**. The environment supplies all four hosted URLs:
+
+| Variable | URL |
+| --- | --- |
+| `orders_url` | `https://saga-orders.onrender.com` |
+| `payment_url` | `https://saga-payment.onrender.com` |
+| `inventory_url` | `https://saga-inventory.onrender.com` |
+| `shipping_url` | `https://saga-shipping.onrender.com` |
+
+Set the current value of `backend_api_token` in Postman to the generated `BACKEND_API_TOKEN` from Render's `saga-backend-auth` environment group. Do not export, commit, or share that value. The collection sends it as a Bearer token; hosted business routes and readiness calls require it.
+
+Before running checkout scenarios, send all four `/health` requests in folder 01 individually to wake the Free services. Wait for each to return 200, then verify all four authenticated `/ready` requests return 200. Increase Postman's request timeout to 120000 ms if needed for cold starts. A public health response alone does not prove database or broker readiness. RabbitMQ messages do not wake sleeping participant services.
+
+Run folders **01–09**, in order, with one iteration and both hosted simulation modes set to `success`. These tests create durable demo records and consume inventory; do not run against real customer data. Folders **10–13** require the corresponding Render service environment mode changes and redeploys described below, one scenario at a time. Folder **14** is manual diagnostics, not an automatic run-all test. Restore both simulation modes to `success` afterwards. For controlled broker/process outage tests, prefer the local disposable setup; the Docker stop instructions below do not apply to CloudAMQP.
+
+The URL mapping and import artifacts are checked locally. This does not establish that every case passes on Render: hosted execution additionally requires your private token, ready services, available stock, and the scenario-specific server settings. Do not share the token with anyone or embed it in exported JSON.
+
 ## Start the project
 
 From the project root, with the service `.env` files configured:

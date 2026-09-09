@@ -9,6 +9,7 @@ test.beforeEach(async ({ page }) => {
 
 const pages = [
   { path: "/", heading: "Overview", nav: "Overview" },
+  { path: "/features", heading: "Platform Features", nav: "Platform Features" },
   { path: "/orders/new", heading: "Create order", nav: "Create Order" },
   { path: "/orders", heading: "Orders", nav: "Orders" },
   { path: "/attention", heading: "Attention", nav: "Attention" },
@@ -40,7 +41,10 @@ for (const target of pages) {
       ).toBeVisible();
     else if (target.path === "/orders")
       await expect(page.getByText(/Order lookup is read-only/)).toBeVisible();
-    else {
+    else if (target.path === "/features") {
+      await expect(page.getByRole("heading", { name: "Your first demo order" })).toBeVisible();
+      await expect(page.getByText(/No real money is charged/)).toBeVisible();
+    } else {
       await expect(page.getByRole("region", { name: "Orders requiring attention" })).toContainText("at most 100");
     }
     if (isMobile)

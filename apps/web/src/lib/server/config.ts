@@ -18,6 +18,8 @@ export function parseBackendConfig(
   ] as const;
   const origins = {} as Record<ServiceName, string>;
   for (const [service, key, port] of entries) {
+    if (env.VERCEL === "1" && !env[key])
+      throw new Error(`${key} is required on Vercel`);
     const url = new URL(env[key] ?? `http://127.0.0.1:${port}`);
     if (
       !["http:", "https:"].includes(url.protocol) ||

@@ -7,6 +7,7 @@ export const navigation: {
   group: string;
 }[] = [
   { href: "/", label: "Overview", icon: "grid", group: "Workspace" },
+  { href: "/features", label: "Platform Features", icon: "info", group: "Workspace" },
   {
     href: "/orders/new",
     label: "Create Order",

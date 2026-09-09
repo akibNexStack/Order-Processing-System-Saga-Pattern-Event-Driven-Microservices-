@@ -4,11 +4,32 @@ import { parseBackendConfig } from "../../src/lib/server/config";
 import { proxyRequest, resolveTarget } from "../../src/lib/server/proxy";
 
 const config = parseBackendConfig({});
+const renderOrigins = {
+  ORDERS_SERVICE_URL: "https://saga-orders.onrender.com",
+  PAYMENT_SERVICE_URL: "https://saga-payment.onrender.com",
+  INVENTORY_SERVICE_URL: "https://saga-inventory.onrender.com",
+  SHIPPING_SERVICE_URL: "https://saga-shipping.onrender.com",
+};
+test("Vercel requires all four explicit origins and routes to the matching Render service", async () => {
+  const env = { ...renderOrigins, VERCEL: "1", BACKEND_API_TOKEN: "s".repeat(48) };
+  for (const key of Object.keys(renderOrigins)) {
+    assert.throws(() => parseBackendConfig({ ...env, [key]: undefined }), new RegExp(key));
+  }
+  const hosted = parseBackendConfig(env);
+  for (const service of ["orders", "payment", "inventory", "shipping"] as const) {
+    const response = await proxyRequest(new Request(`https://demo.test/api/services/${service}/ready`),
+      ["services", service, "ready"], hosted, async (url) => {
+        assert.equal(String(url), `https://saga-${service}.onrender.com/ready`);
+        return Response.json({ ok: true });
+      });
+    assert.equal(response.status, 200);
+  }
+});
 test("hosted proxy requires a secret and replaces browser authorization", async () => {
   assert.throws(() => parseBackendConfig({ VERCEL: "1" }));
   assert.throws(() => parseBackendConfig({ BACKEND_API_TOKEN: "short" }));
   const secret = "s".repeat(48);
-  const hosted = parseBackendConfig({ VERCEL: "1", BACKEND_API_TOKEN: secret });
+  const hosted = parseBackendConfig({ ...renderOrigins, VERCEL: "1", BACKEND_API_TOKEN: secret });
   const response = await proxyRequest(new Request("https://demo.test/api/orders/x", {
     headers: { authorization: "Bearer attacker", cookie: "private=value" },
   }), ["orders", "x"], hosted, async (_url, init) => {

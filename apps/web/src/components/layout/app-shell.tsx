@@ -157,7 +157,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
           <span className="environment-label">
             <span aria-hidden="true" />
-            Local workspace
+            Demo workspace
           </span>
         </header>
         <main id="main-content" tabIndex={-1} className="main-content">

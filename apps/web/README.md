@@ -48,6 +48,9 @@ The frontend has its own TypeScript configuration because Next.js uses bundler m
 | `/orders` | UUID lookup and browser-local recent orders |
 | `/attention` | Live intervention queue with order/history links and a 100-record cap |
 | `/services` | Live health/readiness, dependency results, timestamps, and refresh |
+| `/features` | Platform capabilities, section-by-section guide, first checkout, recovery, and demo limits |
+
+For Vercel, use the four public Render origins listed in `.env.vercel.example` and set the shared `BACKEND_API_TOKEN` privately in the deployment environment. The template deliberately contains no token. All four origins are required on Vercel; omitted values fail configuration instead of silently targeting localhost. Local development continues to use `.env.example`. Environment configuration and local tests do not replace a hosted end-to-end smoke test.
 
 All routes share the desktop sidebar, header, and footer. Below 1024px, navigation opens in a native modal drawer with keyboard focus containment, Escape/backdrop dismissal, focus restoration, and scroll locking. Selecting a route or resizing to desktop closes the drawer. A skip link provides direct keyboard access to the main content.
 

@@ -18,6 +18,7 @@ import {
 } from "@/lib/orders/view";
 import { useOrderPolling } from "@/lib/orders/polling";
 import { SagaProgress } from "./saga-progress";
+import { ResumeOrder } from "./resume-order";
 import { OrderHistory } from "./order-history";
 import { demoProducts, formatMinor } from "@/lib/checkout/form";
 import { useUiStore } from "../providers/state-provider";
@@ -410,6 +411,7 @@ export function OrderDetails({ orderId }: { orderId: string }) {
       </Card>
       {verified && data && !query.error && (
         <>
+        <ResumeOrder key={orderId} state={data} checking={query.isFetching} />
         <SagaProgress state={data} />
         <OrderHistory key={orderId} orderId={orderId} version={data.saga.version} />
         <Participants

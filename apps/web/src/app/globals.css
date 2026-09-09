@@ -1088,6 +1088,12 @@ h2 {
 .saga-steps li, .saga-history li { min-width: 0; }
 .saga-history li { border-bottom: 1px solid var(--line); padding-bottom: 16px; }
 .saga-history summary { cursor: pointer; font-weight: 600; }
+.attention-orders { display: grid; gap: 20px; list-style: none; padding: 0; }
+.attention-orders li { border-top: 1px solid var(--line); padding-top: 16px; display: grid; gap: 8px; min-width: 0; }
+.attention-orders .status-badge { justify-self: start; }
+.readiness-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+.readiness-summary { display: grid; justify-items: start; gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; }
+#order-history { scroll-margin-top: 90px; }
 .saga-history pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;

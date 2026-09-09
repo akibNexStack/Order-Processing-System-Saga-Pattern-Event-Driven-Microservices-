@@ -105,7 +105,7 @@ export const HistorySchema = z.looseObject({
 });
 
 export const AttentionSchema = z.looseObject({
-  limit: z.number().int().positive(),
+  limit: z.number().int().positive().max(100),
   orders: z.array(
     z.looseObject({
       orderId: IdSchema,
@@ -115,8 +115,10 @@ export const AttentionSchema = z.looseObject({
       reason: z.string().nullable(),
       updatedAt: timestamp,
     }),
-  ),
-});
+  ).max(100),
+}).refine(value => value.orders.length <= value.limit &&
+  new Set(value.orders.map(order => order.orderId.toLowerCase())).size === value.orders.length,
+  "Invalid attention list size or duplicate order IDs");
 
 export const PaymentStateSchema = z.looseObject({
   payment: z

@@ -8,6 +8,8 @@ import {
 } from "@saga/shared/contracts";
 import * as c from "./contracts";
 import { createBaseQuery, type ApiResponse } from "./base-query";
+import { validResumeReply } from "../orders/resume";
+import { matchesOrder, sameId } from "../orders/view";
 
 type Reply<S extends z.ZodType> = ApiResponse<z.infer<S>>;
 const idPath = (prefix: string, id: string) =>
@@ -49,6 +51,14 @@ export const sagaApi = createApi({
         schema: c.OrderStateSchema,
       }),
       providesTags: (_r, _e, id) => [{ type: "Order", id }],
+      merge(current, incoming, { arg }) {
+        // A GET already in flight when resume finishes must not roll back the
+        // newer, validated mutation snapshot.
+        if (matchesOrder(current.body, arg) && matchesOrder(incoming.body, arg) &&
+          sameId(current.body.saga.id, incoming.body.saga.id) &&
+          incoming.body.saga.version < current.body.saga.version) return;
+        return incoming;
+      },
     }),
     getOrderHistory: build.query<Reply<typeof c.HistorySchema>, string>({
       query: (id) => ({
@@ -62,13 +72,28 @@ export const sagaApi = createApi({
       providesTags: ["Attention"],
     }),
     resumeOrder: build.mutation<Reply<typeof c.OrderStateSchema>, string>({
-      query: (id) => ({
+      async queryFn(id, _api, _extra, baseQuery) {
+        const result = await baseQuery({
         url: `${idPath("orders", id)}/resume`,
         method: "POST",
         schema: c.OrderStateSchema,
         statuses: [200, 202, 422],
-      }),
-      invalidatesTags: (_r, _e, id) => [{ type: "Order", id }, "Attention"],
+        });
+        if (result.error) return { error: result.error };
+        const data = result.data as Reply<typeof c.OrderStateSchema>;
+        return validResumeReply(data, id) ? { data } : {
+          error: { status: "INVALID_RESPONSE", message: "Resume response does not match the order or HTTP status" },
+        };
+      },
+      async onQueryStarted(id, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          dispatch(sagaApi.util.updateQueryData("getOrder", id, draft => {
+            if (data.body.saga.version >= draft.body.saga.version) return data;
+          }));
+        } catch { /* Unknown outcome: invalidation rechecks the GET endpoints. */ }
+      },
+      invalidatesTags: (_r, _e, id) => [{ type: "Order", id }, "Attention", "Payment", "Inventory", "Shipment"],
     }),
     getPayment: build.query<Reply<typeof c.PaymentStateSchema>, string>({
       query: (id) => ({

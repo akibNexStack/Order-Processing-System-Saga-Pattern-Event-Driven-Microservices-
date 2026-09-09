@@ -21,6 +21,8 @@ test(
     let mode = "normal";
     let calls = 0;
     let received = "";
+    let resumed = false;
+    let resumeRequests = 0;
     const orderRequests: string[] = [];
     const backend = createServer(async (req, res) => {
       calls++;
@@ -59,7 +61,18 @@ test(
         return;
       }
       if (req.url === `/orders/${orderId}` && orderRequests.length) {
-        res.end(JSON.stringify(orderReply(JSON.parse(orderRequests.at(-1)!))));
+        const state = orderReply(JSON.parse(orderRequests.at(-1)!));
+        if (resumed) { state.saga.status = "COMPLETED"; state.saga.version = 2; }
+        res.end(JSON.stringify(state));
+        return;
+      }
+      if (req.url === `/orders/${orderId}/resume` && req.method === "POST") {
+        resumed = true;
+        resumeRequests++;
+        const state = orderReply(JSON.parse(orderRequests.at(-1)!));
+        state.saga.status = "COMPLETED";
+        state.saga.version = 2;
+        res.end(JSON.stringify(state));
         return;
       }
       if (req.url === `/orders/${orderId}/history` && orderRequests.length) {
@@ -103,7 +116,11 @@ test(
         return;
       }
       if (req.url?.startsWith("/orders/attention")) {
-        res.end(JSON.stringify({ limit: 50, orders: [] }));
+        res.end(JSON.stringify({ limit: 100, orders: orderRequests.length && !resumed ? [{
+          orderId, sagaId: orderReply(JSON.parse(orderRequests.at(-1)!)).saga.id,
+          status: "IN_PROGRESS", operation: "CHARGE_PAYMENT", reason: "COMMAND_RETRIES_EXHAUSTED",
+          updatedAt: "2026-09-09T06:00:00.000Z",
+        }] : [] }));
         return;
       }
       if (req.url === "/payments/charge") {
@@ -288,6 +305,16 @@ test(
         await expect(
           page.getByRole("region", { name, exact: true }),
         ).toContainText("Not started yet");
+      await page.goto("http://127.0.0.1:3105/attention");
+      await expect(page.getByRole("region", { name: "Orders requiring attention" })).toContainText("COMMAND_RETRIES_EXHAUSTED");
+      await page.getByRole("link", { name: "Open order", exact: true }).click();
+      await page.getByRole("button", { name: "Resume order", exact: true }).click();
+      await expect(page.getByRole("region", { name: "Order overview" })).toContainText("COMPLETED");
+      await expect(page.getByRole("button", { name: "Resume order", exact: true })).toHaveCount(0);
+      assert.equal(resumeRequests, 1);
+      await page.goto("http://127.0.0.1:3105/");
+      await expect(page.getByRole("region", { name: "Orders requiring attention" })).toContainText("No orders requiring attention were returned");
+      await expect(page.getByRole("region", { name: "Recent orders" })).toContainText(orderId);
     } finally {
       await browser.close();
     }

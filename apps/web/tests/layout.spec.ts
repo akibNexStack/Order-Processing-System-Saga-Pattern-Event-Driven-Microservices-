@@ -4,6 +4,7 @@ import { mockHealthyServices } from "./fixtures/services";
 
 test.beforeEach(async ({ page }) => {
   await mockHealthyServices(page);
+  await page.route("**/api/orders/attention", route => route.fulfill({ json: { limit: 100, orders: [] } }));
 });
 
 const pages = [
@@ -39,7 +40,9 @@ for (const target of pages) {
       ).toBeVisible();
     else if (target.path === "/orders")
       await expect(page.getByText(/Order lookup is read-only/)).toBeVisible();
-    else await expect(page.getByText("Workspace preview.")).toBeVisible();
+    else {
+      await expect(page.getByRole("region", { name: "Orders requiring attention" })).toContainText("at most 100");
+    }
     if (isMobile)
       await page.getByRole("button", { name: "Open navigation" }).click();
     const nav = page.getByRole("navigation", { name: "Primary navigation" });

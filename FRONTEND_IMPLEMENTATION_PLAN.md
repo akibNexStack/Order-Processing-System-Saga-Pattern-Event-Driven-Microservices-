@@ -153,6 +153,10 @@ RTK Query is used for typed queries/mutations and server-data caching, as reques
 
 ## Step 11 — Build Attention, Resume, and Overview Features
 
+**Status:** Implemented: live attention queue with reasons, recorded operations, timestamps, order/history links, and explicit 100-record cap; shared per-order resume state with duplicate-click protection, validated outcomes, version-safe cache updates, and terminal controls hidden; live overview with independent readiness, attention, and browser-local recent orders. Final verification results are recorded in the frontend README.
+
+**Verification (2026-09-09):** Final production build including TypeScript passed. All 186 checks passed: the full 130-test desktop/mobile browser suite, 36 state/provider tests, 14 API tests, 5 UI tests, and 1 isolated production-proxy integration test. Coverage includes all existing frontend sections and new attention/overview/resume flows, normal and uncertain outcomes, duplicate prevention across navigation, stale GET protection, terminal controls, polling restart, history links, accessibility, and responsive layouts. Final desktop/mobile overview screenshots were reviewed. Real PostgreSQL/RabbitMQ/provider execution remains outside this fixture-based verification.
+
 - Display orders requiring intervention from `/orders/attention`.
 - Show each order's reason, current operation, and last update.
 - Provide actions to open order details and history.

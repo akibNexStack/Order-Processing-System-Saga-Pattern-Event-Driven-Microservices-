@@ -170,9 +170,15 @@ export function AppShell({ children }: { children: ReactNode }) {
               ? "Live service checks · Read-only"
               : pathname === "/orders/new"
                 ? "Demo checkout · Live submission"
-                : pathname === "/orders" || pathname.startsWith("/orders/")
+                : pathname === "/orders"
                   ? "Order lookup · Read-only snapshots"
-                  : "Layout preview · No live data"}
+                  : pathname.startsWith("/orders/")
+                    ? "Order details · Status, history, and recovery"
+                    : pathname === "/attention"
+                      ? "Live attention queue · Up to 100 records"
+                      : pathname === "/"
+                        ? "Live workspace overview"
+                        : "Saga workspace"}
           </span>
         </footer>
       </div>

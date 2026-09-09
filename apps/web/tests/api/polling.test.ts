@@ -38,7 +38,7 @@ test("resume invalidation refreshes a paused order and makes it eligible to poll
     else reads++;
     const state = orderDetailsFixture();
     state.requiresManualIntervention = paused;
-    return Response.json(state);
+    return Response.json(state, { status: request.method === "POST" ? 202 : 200 });
   });
   const store = makeStore();
   t.after(() => store.dispatch(sagaApi.util.resetApiState()));
@@ -51,6 +51,40 @@ test("resume invalidation refreshes a paused order and makes it eligible to poll
   assert.equal(reads, 2);
   assert.equal(pollingDelay(after.data?.body, after.error, 0), 2000);
   subscription.unsubscribe();
+});
+
+test("an older GET cannot roll back the newer resume snapshot", async t => {
+  const NativeRequest = globalThis.Request;
+  t.mock.method(globalThis, "Request", class extends NativeRequest {
+    constructor(input: RequestInfo | URL, init?: RequestInit) {
+      super(typeof input === "string" ? new URL(input, "http://fixture.test") : input, init);
+    }
+  });
+  let reads = 0;
+  let release!: (response: Response) => void;
+  const stale = new Promise<Response>(resolve => { release = resolve; });
+  t.mock.method(globalThis, "fetch", async (request: Request) => {
+    const body = orderDetailsFixture();
+    if (request.method === "POST") {
+      body.saga.status = "COMPLETED";
+      body.saga.version = 3;
+      return Response.json(body);
+    }
+    if (++reads === 2) return stale;
+    return Response.json(body);
+  });
+  const store = makeStore();
+  t.after(() => store.dispatch(sagaApi.util.resetApiState()));
+  await store.dispatch(sagaApi.endpoints.getOrder.initiate(orderId));
+  const pending = store.dispatch(sagaApi.endpoints.getOrder.initiate(orderId, { forceRefetch: true }));
+  await new Promise(resolve => setImmediate(resolve));
+  await store.dispatch(sagaApi.endpoints.resumeOrder.initiate(orderId)).unwrap();
+  release(Response.json(orderDetailsFixture()));
+  await pending;
+  await Promise.all(store.dispatch(sagaApi.util.getRunningQueriesThunk()));
+  const result = sagaApi.endpoints.getOrder.select(orderId)(store.getState());
+  assert.equal(result.data?.body.saga.version, 3);
+  assert.equal(result.data?.body.saga.status, "COMPLETED");
 });
 
 test("detail cleanup aborts all reads, duplicate GETs share a request, and late replies cannot overwrite newer data", async t => {

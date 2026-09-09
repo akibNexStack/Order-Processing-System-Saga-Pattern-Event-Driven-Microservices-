@@ -7,6 +7,13 @@ import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 
 export function OrderHistory({ orderId, version }: { orderId: string; version: number }) {
+  useEffect(() => {
+    if (window.location.hash === "#order-history") {
+      const section = document.getElementById("order-history");
+      section?.scrollIntoView();
+      section?.focus({ preventScroll: true });
+    }
+  }, [orderId]);
   const query = useGetOrderHistoryQuery(orderId, manualQueryOptions);
   const requestedVersion = useRef(version);
   useEffect(() => {
@@ -16,7 +23,7 @@ export function OrderHistory({ orderId, version }: { orderId: string; version: n
   }, [version, query.isFetching, query.refetch]);
   const body = query.currentData?.body;
   const events = body ? orderedHistory(body, orderId) : null;
-  return <Card className="order-panel" aria-label="Order history">
+  return <Card id="order-history" tabIndex={-1} className="order-panel" aria-label="Order history">
     <div className="order-panel-heading"><h2>Order history</h2>
       <Button variant="secondary" disabled={query.isFetching || query.isUninitialized} onClick={() => query.refetch()}>Refresh history</Button>
     </div>

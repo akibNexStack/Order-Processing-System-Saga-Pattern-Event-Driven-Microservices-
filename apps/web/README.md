@@ -1,6 +1,6 @@
 # Saga frontend
 
-Step 10 adds saga progress, compensation progress, and chronological event history to the automatically refreshed order details introduced in Step 9.
+Step 11 adds a live attention queue, guarded order resume, and an overview of service readiness, intervention records, and browser-local recent orders.
 
 Next.js App Router workspace for the order-processing microservices. Steps 1–2 provide the application foundation, responsive shell, navigation, and shared UI components. Step 3 adds the backend proxy and RTK Query integration; Step 4 adds Zustand state, persistence, and hydration. Step 5 connects the live Services screen, Step 6 adds checkout validation, and Step 7 connects order submission with duplicate prevention and explicit same-key retries.
 
@@ -42,11 +42,11 @@ The frontend has its own TypeScript configuration because Next.js uses bundler m
 
 | Route | Screen |
 | --- | --- |
-| `/` | Overview and workspace shortcuts |
+| `/` | Live readiness, attention queue, and browser-local recent orders |
 | `/orders/new` | Demo checkout, local validation, live submission, and safe retry |
-| `/orders/[orderId]` | Order details, participant snapshots, and an optional original submission receipt |
+| `/orders/[orderId]` | Order details, polling, saga progress/history, participant snapshots, and guarded resume |
 | `/orders` | UUID lookup and browser-local recent orders |
-| `/attention` | Intervention queue layout preview |
+| `/attention` | Live intervention queue with order/history links and a 100-record cap |
 | `/services` | Live health/readiness, dependency results, timestamps, and refresh |
 
 All routes share the desktop sidebar, header, and footer. Below 1024px, navigation opens in a native modal drawer with keyboard focus containment, Escape/backdrop dismissal, focus restoration, and scroll locking. Selecting a route or resizing to desktop closes the drawer. A skip link provides direct keyboard access to the main content.
@@ -261,7 +261,7 @@ Verification on 2026-09-08: workspace typechecks, production build, and 118 chec
 
 ## Step 8 — Order lookup and details
 
-Use `/orders` to enter an order UUID. Surrounding whitespace and uppercase UUIDs are normalized before navigation. Invalid input shows an associated field error and receives focus; invalid detail URLs show a recovery link without making backend requests. These pages only read services; they do not retry saga operations, charge/refund, reserve/release, or create/cancel shipments.
+Use `/orders` to enter an order UUID. Surrounding whitespace and uppercase UUIDs are normalized before navigation. Invalid input shows an associated field error and receives focus; invalid detail URLs show a recovery link without making backend requests. Lookup is read-only. As of Step 11, order details additionally offer an explicit resume action for unfinished orders.
 
 The recent-orders section uses the existing Zustand UI store: up to 20 unique IDs, most recent first, recorded after verified lookup or submission. Open an ID, remove an entry, clear the list, or disable remembering entirely. Only IDs/preferences persist. Delivery details and API responses remain in memory. If browser storage is unavailable, the UI explains the in-memory fallback. A missing or unverified lookup does not add a new ID; existing saved IDs are not automatically deleted.
 
@@ -309,7 +309,7 @@ Order details refresh two seconds after each successful active-order GET. Initia
 
 Initial loads, manual refresh, polling, and resume-triggered invalidation share RTK Query's per-order request deduplication. Leaving details clears the timer and aborts outstanding order and participant GETs. Cleanup tolerates React Strict Mode effect reconnection. Verified details and participant sections stay mounted during background refresh, avoiding flicker and repeated participant GETs. Each participant still has an independent manual refresh; its snapshot is not an atomic view of the saga.
 
-The existing resume mutation invalidates the order cache. A newly fetched active snapshot starts polling again; the actual resume controls remain in Step 11. The API test exercises resume invalidation, and browser tests exercise polling restart from a refreshed active snapshot.
+The resume mutation invalidates the order cache. An active snapshot starts polling again; Step 11 below adds the actual controls and validated cache updates. API and browser tests exercise resume invalidation and polling restart.
 
 Verification on 2026-09-09: production build including TypeScript, 26 focused desktop/mobile browser tests, 13 API tests, 29 state/provider tests, and 5 UI tests passed. Tests cover initial recovery, retry delay reset/cap, deduplication, stable rendering, navigation cancellation, late-response isolation, terminal/intervention stops, and resume invalidation. These results use isolated fixtures, not real database/broker/provider execution.
 
@@ -326,3 +326,15 @@ History uses GET `/orders/:id/history`. Events are sorted by committed sequence,
 History refreshes when the observed saga version changes, including the final terminal update. A version change during an outstanding history request triggers a follow-up when that request settles. Manual refresh and history errors are independent of progress and participant sections. All detail GETs, including history, are aborted on navigation. No history responses are persisted in browser storage. Order, participant, and history snapshots can have different timestamps and are not one atomic cross-service view.
 
 Verification on 2026-09-09: production build and TypeScript passed, plus 80 checks (32 focused desktop/mobile browser tests, 34 state/provider tests, 13 API tests, and 1 production Next-proxy integration test). Browser coverage includes chronological/raw history, compensation, partial failures/retry, identity rejection, terminal history refresh, accessibility, and 320/768/1440px overflow checks. Tests use isolated fixtures rather than real database/broker/provider workflows. To repeat the browser subset after a build, run `PLAYWRIGHT_PORT=3114 npm run test:e2e --workspace @saga/web -- history.spec.ts orders.spec.ts polling.spec.ts`.
+
+## Step 11 — Attention, resume, and overview
+
+`/attention` and `/` share the live attention query. Each returned row includes order ID, reason (or an explicit missing-reason fallback), recorded operation, saga status, and update time. Links open order details or the history section, where focus is moved to the history panel. Loading, unavailable, empty, and maximum-sized results are distinct. The backend returns at most 100 rows; the UI reports the returned count and response limit, never a total backlog. Full lists warn that additional orders may exist. Malformed, oversized, and duplicate-ID lists are rejected.
+
+Order details provide **Resume order** only for verified nonterminal orders. Resume sends one explicit POST, with no automatic POST retry. A synchronous click guard and a shared RTK mutation key per normalized order ID keep the control disabled while the request is pending, including across client-side navigation away and back. This state is scoped to the current browser tab and provider lifetime.
+
+Responses must match the requested order and all item/order associations. HTTP 200 requires COMPLETED, 202 requires IN_PROGRESS or COMPENSATING, and 422 requires FAILED. A valid response updates the order cache only if its version is at least as recent; older GET responses cannot roll the cache back. Order/history, attention, and participant queries are invalidated for reconciliation. Active snapshots resume polling; terminal snapshots hide resume controls. A 202 that still requires intervention explains that processing remains paused. On network, malformed, conflicting, or uncorrelated responses, the UI reports an unconfirmed outcome and asks the user to refresh/reconcile before another explicit attempt.
+
+The overview displays four independent readiness checks, the attention list, and the existing browser-local recent IDs. Readiness checks refresh on entry, focus, reconnect, and explicit refresh. Unavailable or incomplete readiness is shown as unknown rather than ready. Recent orders respect hydration, opt-out, and unavailable storage; management remains on `/orders`. Opening the overview or attention list never submits a resume request.
+
+Verification on 2026-09-09: the final production build including TypeScript passed, along with **186 checks**: all **130 desktop/mobile browser tests**, 36 state/provider tests, 14 API tests, 5 UI tests, and the production Next-proxy integration test. The full browser run completed with no failures or skips in 7.1 minutes using `PLAYWRIGHT_PORT=3114 npm run test:e2e --workspace @saga/web -- --workers=2`. It covers all implemented frontend sections, including Step 11 response outcomes (200/202/422), uncertain 503/404/409 and malformed/unrelated replies, duplicate resume clicks and navigation, normalized IDs, stale GET protection, attention limits/errors, independent readiness, recent orders, history links, accessibility, and narrow layouts. Desktop/mobile overview screenshots were reviewed. The integration test exercises attention → order → resume → overview through the actual Next proxy using an isolated HTTP backend. These checks do not exercise real PostgreSQL/RabbitMQ/providers.

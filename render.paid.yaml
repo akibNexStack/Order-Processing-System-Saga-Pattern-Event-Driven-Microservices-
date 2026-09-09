@@ -1,0 +1,198 @@
+# Optional paid deployment. The default render.yaml uses free web services.
+# Paid, always-on demo resources. Review Render's cost estimate before applying.
+# Never use real customer/payment data in this simulated demo.
+services:
+  - type: pserv
+    name: saga-rabbitmq
+    runtime: image
+    image:
+      url: rabbitmq:4-management
+    plan: 0.5c-512mb
+    region: singapore
+    disk:
+      name: rabbit-data
+      mountPath: /var/lib/rabbitmq
+      sizeGB: 1
+    envVars:
+      - key: PORT
+        value: "5672"
+      - key: RABBITMQ_DEFAULT_USER
+        value: saga
+      - key: RABBITMQ_DEFAULT_PASS
+        generateValue: true
+      - key: RABBITMQ_NODENAME
+        value: rabbit@localhost
+      - key: RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS
+        value: "+S 2:2"
+
+  - type: web
+    name: saga-payment
+    runtime: docker
+    dockerfilePath: ./Dockerfile.backend
+    dockerContext: .
+    dockerCommand: node scripts/render-start.mjs payment-service
+    preDeployCommand: node scripts/migrate-service.mjs payment-service
+    plan: 0.5c-512mb
+    region: singapore
+    healthCheckPath: /health
+    autoDeployTrigger: "off"
+    envVars:
+      - fromGroup: saga-backend-auth
+      - key: REQUIRE_SERVICE_AUTH
+        value: "1"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: saga-payment-db
+          property: connectionString
+      - key: RABBITMQ_HOST
+        fromService:
+          name: saga-rabbitmq
+          type: pserv
+          property: host
+      - key: RABBITMQ_USER
+        value: saga
+      - key: RABBITMQ_PASSWORD
+        fromService:
+          name: saga-rabbitmq
+          type: pserv
+          envVarKey: RABBITMQ_DEFAULT_PASS
+      - key: RABBITMQ_PREFIX
+        value: saga.hosted.v1
+
+  - type: web
+    name: saga-inventory
+    runtime: docker
+    dockerfilePath: ./Dockerfile.backend
+    dockerContext: .
+    dockerCommand: node scripts/render-start.mjs inventory-service
+    preDeployCommand: node scripts/migrate-service.mjs inventory-service
+    plan: 0.5c-512mb
+    region: singapore
+    healthCheckPath: /health
+    autoDeployTrigger: "off"
+    envVars:
+      - fromGroup: saga-backend-auth
+      - key: REQUIRE_SERVICE_AUTH
+        value: "1"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: saga-inventory-db
+          property: connectionString
+      - key: RABBITMQ_HOST
+        fromService:
+          name: saga-rabbitmq
+          type: pserv
+          property: host
+      - key: RABBITMQ_USER
+        value: saga
+      - key: RABBITMQ_PASSWORD
+        fromService:
+          name: saga-rabbitmq
+          type: pserv
+          envVarKey: RABBITMQ_DEFAULT_PASS
+      - key: RABBITMQ_PREFIX
+        value: saga.hosted.v1
+
+  - type: web
+    name: saga-shipping
+    runtime: docker
+    dockerfilePath: ./Dockerfile.backend
+    dockerContext: .
+    dockerCommand: node scripts/render-start.mjs shipping-service
+    preDeployCommand: node scripts/migrate-service.mjs shipping-service
+    plan: 0.5c-512mb
+    region: singapore
+    healthCheckPath: /health
+    autoDeployTrigger: "off"
+    envVars:
+      - fromGroup: saga-backend-auth
+      - key: REQUIRE_SERVICE_AUTH
+        value: "1"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: saga-shipping-db
+          property: connectionString
+      - key: RABBITMQ_HOST
+        fromService:
+          name: saga-rabbitmq
+          type: pserv
+          property: host
+      - key: RABBITMQ_USER
+        value: saga
+      - key: RABBITMQ_PASSWORD
+        fromService:
+          name: saga-rabbitmq
+          type: pserv
+          envVarKey: RABBITMQ_DEFAULT_PASS
+      - key: RABBITMQ_PREFIX
+        value: saga.hosted.v1
+
+  - type: web
+    name: saga-orders
+    runtime: docker
+    dockerfilePath: ./Dockerfile.backend
+    dockerContext: .
+    dockerCommand: node scripts/render-start.mjs order-orchestrator
+    preDeployCommand: node scripts/migrate-service.mjs order-orchestrator
+    plan: 0.5c-512mb
+    region: singapore
+    healthCheckPath: /health
+    autoDeployTrigger: "off"
+    envVars:
+      - fromGroup: saga-backend-auth
+      - key: REQUIRE_SERVICE_AUTH
+        value: "1"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: saga-orders-db
+          property: connectionString
+      - key: RABBITMQ_HOST
+        fromService:
+          name: saga-rabbitmq
+          type: pserv
+          property: host
+      - key: RABBITMQ_USER
+        value: saga
+      - key: RABBITMQ_PASSWORD
+        fromService:
+          name: saga-rabbitmq
+          type: pserv
+          envVarKey: RABBITMQ_DEFAULT_PASS
+      - key: RABBITMQ_PREFIX
+        value: saga.hosted.v1
+
+envVarGroups:
+  - name: saga-backend-auth
+    envVars:
+      - key: BACKEND_API_TOKEN
+        generateValue: true
+
+databases:
+  - name: saga-payment-db
+    region: singapore
+    plan: 0.1c-256mb
+    diskSizeGB: 1
+    postgresMajorVersion: "17"
+    databaseName: saga
+    ipAllowList: []
+  - name: saga-inventory-db
+    region: singapore
+    plan: 0.1c-256mb
+    diskSizeGB: 1
+    postgresMajorVersion: "17"
+    databaseName: saga
+    ipAllowList: []
+  - name: saga-shipping-db
+    region: singapore
+    plan: 0.1c-256mb
+    diskSizeGB: 1
+    postgresMajorVersion: "17"
+    databaseName: saga
+    ipAllowList: []
+  - name: saga-orders-db
+    region: singapore
+    plan: 0.1c-256mb
+    diskSizeGB: 1
+    postgresMajorVersion: "17"
+    databaseName: saga
+    ipAllowList: []

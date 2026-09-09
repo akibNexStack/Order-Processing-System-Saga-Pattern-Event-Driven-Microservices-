@@ -349,6 +349,9 @@ Be ready to explain, precisely:
 
 ## Deployment and release verification
 
+For free demo hosting, follow [FREE_DEPLOYMENT.md](FREE_DEPLOYMENT.md).
+The default Render Blueprint uses Free web services with external Neon and CloudAMQP.
+
 For the Vercel frontend + Render backend setup, access-protection requirements,
 environment variables, migrations, and smoke checks, see [DEPLOYMENT.md](DEPLOYMENT.md).
 Run `npm run verify:release` against disposable local test infrastructure before release.

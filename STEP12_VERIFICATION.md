@@ -2,6 +2,14 @@
 
 Target: Vercel frontend and Render backend, using simulated providers and fake demo data.
 
+Deployment update: the default `render.yaml` now targets four Render Free web
+services with external Neon PostgreSQL and CloudAMQP credentials. The original
+paid Blueprint is preserved as `render.paid.yaml`. See `FREE_DEPLOYMENT.md`.
+The free configuration was checked locally for YAML validity and for the
+absence of paid Render resources; it has not been verified against hosted
+Neon/CloudAMQP accounts. The test/build evidence below predates this
+configuration-only change and does not establish free-tier availability.
+
 ## Implemented
 
 - Docker builds targeting Node 24; Render Blueprint and Vercel monorepo settings.
@@ -42,7 +50,9 @@ The real browser test proves response-loss retry reuses the original request/key
 
 - No resources have been provisioned on Vercel or Render, and no hosted smoke check has been performed.
 - The earlier private-demo requirement still needs a confirmed frontend access-protection choice. The backend token alone does **not** protect public access through Vercel's proxy. Do not share an unprotected deployment.
-- Render's Blueprint provisions paid resources; review charges before applying it.
+- The optional `render.paid.yaml` provisions paid resources. The default free
+  Blueprint depends on external free plans, their quotas, and waking all
+  participant services before a demo.
 - The full development dependency audit reports four moderate findings in the Drizzle Kit / esbuild development-tool chain. These are absent from the production dependency audit and pruned runtime images. A forced breaking tooling downgrade was not applied.
 - This is not a public production commerce release: providers are simulated and individual authentication, authorization, authoritative pricing, abuse controls and high availability are out of scope.
 

@@ -1,6 +1,6 @@
 # Saga frontend
 
-Step 9 adds safe automatic status polling to active order details, alongside read-only lookup, browser-local recent orders, and independently refreshable participant sections.
+Step 10 adds saga progress, compensation progress, and chronological event history to the automatically refreshed order details introduced in Step 9.
 
 Next.js App Router workspace for the order-processing microservices. Steps 1–2 provide the application foundation, responsive shell, navigation, and shared UI components. Step 3 adds the backend proxy and RTK Query integration; Step 4 adds Zustand state, persistence, and hydration. Step 5 connects the live Services screen, Step 6 adds checkout validation, and Step 7 connects order submission with duplicate prevention and explicit same-key retries.
 
@@ -314,3 +314,15 @@ The existing resume mutation invalidates the order cache. A newly fetched active
 Verification on 2026-09-09: production build including TypeScript, 26 focused desktop/mobile browser tests, 13 API tests, 29 state/provider tests, and 5 UI tests passed. Tests cover initial recovery, retry delay reset/cap, deduplication, stable rendering, navigation cancellation, late-response isolation, terminal/intervention stops, and resume invalidation. These results use isolated fixtures, not real database/broker/provider execution.
 
 To repeat the focused browser checks after a build, run `npm run test:e2e --workspace @saga/web -- orders.spec.ts polling.spec.ts`. If the default test port is occupied, use `PLAYWRIGHT_PORT=3114` as in this verification; the suite starts its own server and never reuses an existing one.
+
+## Step 10 — Saga progress and history
+
+Order details now show payment, inventory reservation, shipment creation, and inventory finalization as separate operations. Success requires the corresponding committed step or finalization flag; an uncertain result is not treated as success or a definitive failure. Active operations can be running (including queued or awaiting a reply), failed with retry still possible, or paused for intervention. Future operations remain pending.
+
+Compensation displays release/refund progress in reverse order, with cancellation shown as not needed when shipment creation never succeeded. The backend retains the failed forward operation in its cursor, so compensation is derived from completed and compensated steps. Previously successful forward operations stay marked successful with an explanation when undone. Successful compensation does not turn a failed order into a successful order.
+
+History uses GET `/orders/:id/history`. Events are sorted by committed sequence, preserving causal order even for equal timestamps. Wrong-order history and duplicate sequences are rejected. Known events have plain-language explanations; unknown events retain the backend summary. Each event exposes its complete history API record in a native expandable details control. This endpoint does not provide complete provider responses; the UI does not invent missing raw data.
+
+History refreshes when the observed saga version changes, including the final terminal update. A version change during an outstanding history request triggers a follow-up when that request settles. Manual refresh and history errors are independent of progress and participant sections. All detail GETs, including history, are aborted on navigation. No history responses are persisted in browser storage. Order, participant, and history snapshots can have different timestamps and are not one atomic cross-service view.
+
+Verification on 2026-09-09: production build and TypeScript passed, plus 80 checks (32 focused desktop/mobile browser tests, 34 state/provider tests, 13 API tests, and 1 production Next-proxy integration test). Browser coverage includes chronological/raw history, compensation, partial failures/retry, identity rejection, terminal history refresh, accessibility, and 320/768/1440px overflow checks. Tests use isolated fixtures rather than real database/broker/provider workflows. To repeat the browser subset after a build, run `PLAYWRIGHT_PORT=3114 npm run test:e2e --workspace @saga/web -- history.spec.ts orders.spec.ts polling.spec.ts`.

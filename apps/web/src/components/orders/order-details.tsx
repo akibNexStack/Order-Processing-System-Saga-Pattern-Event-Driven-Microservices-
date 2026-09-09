@@ -17,6 +17,8 @@ import {
   sameId,
 } from "@/lib/orders/view";
 import { useOrderPolling } from "@/lib/orders/polling";
+import { SagaProgress } from "./saga-progress";
+import { OrderHistory } from "./order-history";
 import { demoProducts, formatMinor } from "@/lib/checkout/form";
 import { useUiStore } from "../providers/state-provider";
 import { SubmissionResult } from "../checkout/submission-result";
@@ -407,11 +409,15 @@ export function OrderDetails({ orderId }: { orderId: string }) {
         )}
       </Card>
       {verified && data && !query.error && (
+        <>
+        <SagaProgress state={data} />
+        <OrderHistory key={orderId} orderId={orderId} version={data.saga.version} />
         <Participants
           key={data.saga.id}
           orderId={orderId}
           sagaId={data.saga.id}
         />
+        </>
       )}
     </>
   );

@@ -1079,6 +1079,21 @@ h2 {
   border-top: 1px solid var(--line);
   padding-top: 12px;
 }
+.saga-steps, .saga-history {
+  display: grid;
+  gap: 16px;
+  list-style: decimal;
+  padding-left: 24px;
+}
+.saga-steps li, .saga-history li { min-width: 0; }
+.saga-history li { border-bottom: 1px solid var(--line); padding-bottom: 16px; }
+.saga-history summary { cursor: pointer; font-weight: 600; }
+.saga-history pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  margin-top: 12px;
+}
 @media (min-width: 1100px) {
   .participant-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -62,6 +62,17 @@ test(
         res.end(JSON.stringify(orderReply(JSON.parse(orderRequests.at(-1)!))));
         return;
       }
+      if (req.url === `/orders/${orderId}/history` && orderRequests.length) {
+        res.end(JSON.stringify({
+          orderId, status: "IN_PROGRESS", interventionReason: null,
+          history: [{
+            sequence: 1, at: "2026-09-09T06:00:00.000Z", step: "PAYMENT",
+            direction: "FORWARD", from: null, to: "IN_PROGRESS",
+            event: "ORDER_ACCEPTED", summary: "Saga: order accepted (payment)",
+          }],
+        }));
+        return;
+      }
       const missingName =
         req.url === `/payments/${orderId}`
           ? "Payment"
@@ -269,6 +280,10 @@ test(
       await expect(
         page.getByRole("region", { name: "Order overview", exact: true }),
       ).toContainText("CHARGE_PAYMENT");
+      await expect(page.getByRole("region", { name: "Saga progress" })
+        .getByRole("listitem").first()).toContainText("Running");
+      await expect(page.getByRole("region", { name: "Order history" }))
+        .toContainText("The order was accepted and processing began.");
       for (const name of ["Payment", "Reservation", "Shipment"])
         await expect(
           page.getByRole("region", { name, exact: true }),

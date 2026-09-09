@@ -68,13 +68,14 @@ test("detail cleanup aborts all reads, duplicate GETs share a request, and late 
   t.after(() => store.dispatch(sagaApi.util.resetApiState()));
   const requests = [
     store.dispatch(sagaApi.endpoints.getOrder.initiate(orderId)),
+    store.dispatch(sagaApi.endpoints.getOrderHistory.initiate(orderId)),
     store.dispatch(sagaApi.endpoints.getPayment.initiate(orderId)),
     store.dispatch(sagaApi.endpoints.getReservation.initiate(orderId)),
     store.dispatch(sagaApi.endpoints.getShipment.initiate(orderId)),
   ];
   const duplicate = store.dispatch(sagaApi.endpoints.getOrder.initiate(orderId, { forceRefetch: true }));
   await new Promise(resolve => setImmediate(resolve));
-  assert.equal(pending.length, 4);
+  assert.equal(pending.length, 5);
   cancelOrderReads(store.dispatch, orderId);
   await Promise.all([...requests, duplicate]);
   assert.ok(pending.every(item => item.request.signal.aborted));
@@ -82,10 +83,10 @@ test("detail cleanup aborts all reads, duplicate GETs share a request, and late 
   await new Promise(resolve => setImmediate(resolve));
   const completed = orderDetailsFixture();
   completed.saga.status = "COMPLETED";
-  pending[4].resolve(Response.json(completed));
+  pending[5].resolve(Response.json(completed));
   await latest;
   // Simulate a transport that still completes despite cancellation.
-  for (const item of pending.slice(0, 4)) item.resolve(Response.json(orderDetailsFixture()));
+  for (const item of pending.slice(0, 5)) item.resolve(Response.json(orderDetailsFixture()));
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(sagaApi.endpoints.getOrder.select(orderId)(store.getState()).data?.body.saga.status, "COMPLETED");
 });

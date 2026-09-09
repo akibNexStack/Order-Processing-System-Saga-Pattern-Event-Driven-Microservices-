@@ -139,6 +139,10 @@ RTK Query is used for typed queries/mutations and server-data caching, as reques
 
 ## Step 10 — Build Saga Progress and History Views
 
+**Status:** Implemented on order details. Four forward-operation rows derive progress from the saga's committed steps, finalization flag, current operation, and correlated result. Compensation follows the reverse cursor, preserving the failed forward operation. History loads from its GET endpoint in committed sequence order, with plain-language event explanations and expandable raw API records. It refreshes on saga version changes, has independent error/manual-refresh states, rejects wrong-order or duplicate-sequence history, and participates in navigation cancellation.
+
+**Verification (2026-09-09):** Production build and TypeScript passed. All 32 focused desktop/mobile history, order, and polling browser tests, 34 state/provider tests, 13 API tests, and the isolated production Next-proxy integration test passed. New checks cover separate inventory finalization, compensation ordering, uncertain/failed outcomes, history sorting and identity, partial failures, final-transition refresh, history request cancellation, accessibility, and responsive overflow. Real PostgreSQL/RabbitMQ/provider execution was not tested.
+
 - Create a progress component for payment, inventory reservation, shipment creation, and inventory finalization.
 - Derive pending, running, succeeded, and failed states from backend data.
 - Display compensation progress for refunds and inventory releases.

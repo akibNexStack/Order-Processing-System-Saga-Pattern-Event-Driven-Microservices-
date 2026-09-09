@@ -20,7 +20,7 @@ export function pollingDelay(order: OrderState | undefined, error: unknown, fail
 // The details route owns these GETs, including initial subscriptions, manual
 // refresh, polling, and requests started by mutation invalidation.
 export function cancelOrderReads(dispatch: AppStore["dispatch"], orderId: string) {
-  for (const endpoint of ["getOrder", "getPayment", "getReservation", "getShipment"] as const)
+  for (const endpoint of ["getOrder", "getOrderHistory", "getPayment", "getReservation", "getShipment"] as const)
     dispatch(sagaApi.util.getRunningQueryThunk(endpoint, orderId))?.abort();
 }
 

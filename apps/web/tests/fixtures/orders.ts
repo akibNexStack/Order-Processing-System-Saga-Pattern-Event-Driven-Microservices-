@@ -72,6 +72,9 @@ export const readPaths = {
   Shipment: `/api/shipments/${orderId}`,
 };
 export async function mockOrderReads(page: Page) {
+  await page.route(`**${readPaths.Order}/history`, route => route.fulfill({ json: {
+    orderId, status: "IN_PROGRESS", interventionReason: null, history: [],
+  } }));
   const data = { Order: orderDetailsFixture(), ...participantFixtures() };
   for (const [name, path] of Object.entries(readPaths))
     await page.route(`**${path}`, (route) =>

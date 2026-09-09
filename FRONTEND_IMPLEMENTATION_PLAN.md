@@ -122,6 +122,10 @@ RTK Query is used for typed queries/mutations and server-data caching, as reques
 
 ## Step 9 — Implement Automatic Status Polling
 
+**Status:** Implemented on `/orders/[orderId]`: active, verified order snapshots are refreshed about every two seconds by a self-scheduling request. Polls never overlap; pending requests and timers are cancelled on navigation. Terminal and intervention-required sagas stop automatically, while the existing manual refresh stays available. Temporary transport/server failures use a longer retry cadence. RTK Query keeps the per-order cache request-safe, and a later resume invalidation restarts polling if the returned saga remains active.
+
+**Verification (2026-09-09):** Production build (including TypeScript) passed. All 26 focused desktop/mobile order and polling browser tests, 13 API tests, 29 state/provider tests, and 5 UI tests passed. Coverage includes initial temporary failure retries, backoff reset and cap, no overlapping GETs, stable details during refresh, initial/manual request cancellation on navigation, stale-response isolation, terminal/intervention stops, and resume-mutation invalidation restoring polling eligibility. These checks use isolated fixtures; real PostgreSQL/RabbitMQ/provider execution was not tested. Resume controls remain Step 11.
+
 - Refresh active order status approximately every two seconds.
 - Prevent overlapping requests for the same order.
 - Clean up requests and timers when leaving the page.

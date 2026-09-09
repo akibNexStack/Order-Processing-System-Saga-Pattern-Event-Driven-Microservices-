@@ -8,6 +8,50 @@ import {
 } from "./fixtures/orders";
 import { orderId, payload } from "./fixtures/checkout";
 
+test("active orders poll until terminal, then retain manual refresh", async ({
+  page,
+}) => {
+  let reads = 0;
+  await mockOrderReads(page);
+  await page.route(`**${readPaths.Order}`, (route) => {
+    reads++;
+    const state = orderDetailsFixture();
+    if (reads >= 2) state.saga.status = "COMPLETED";
+    return route.fulfill({ json: state });
+  });
+  await page.goto(`/orders/${orderId}`);
+  await expect.poll(() => reads).toBe(2);
+  await expect(
+    page.getByRole("region", { name: "Order overview" }),
+  ).toContainText("COMPLETED");
+  await page.waitForTimeout(2_300);
+  expect(reads).toBe(2);
+  await page.getByRole("button", { name: "Refresh order" }).click();
+  await expect.poll(() => reads).toBe(3);
+});
+
+test("intervention-required orders do not poll but remain manually refreshable", async ({
+  page,
+}) => {
+  let reads = 0;
+  await mockOrderReads(page);
+  await page.route(`**${readPaths.Order}`, (route) => {
+    reads++;
+    const state = orderDetailsFixture();
+    state.requiresManualIntervention = true;
+    state.saga.interventionReason = "Provider reconciliation required";
+    return route.fulfill({ json: state });
+  });
+  await page.goto(`/orders/${orderId}`);
+  await expect(
+    page.getByRole("region", { name: "Order overview" }),
+  ).toContainText("Provider reconciliation required");
+  await page.waitForTimeout(2_300);
+  expect(reads).toBe(1);
+  await page.getByRole("button", { name: "Refresh order" }).click();
+  await expect.poll(() => reads).toBe(2);
+});
+
 test("late results for a previous order cannot replace the newly selected order", async ({
   page,
 }) => {
@@ -44,7 +88,11 @@ test("late results for a previous order cannot replace the newly selected order"
   await expect(
     page.getByRole("region", { name: "Order overview" }),
   ).toContainText("Checking order");
+  const cancelled = page.waitForEvent("requestfailed", {
+    predicate: (request) => new URL(request.url()).pathname === readPaths.Order,
+  });
   await page.getByRole("link", { name: "Find another order" }).click();
+  await cancelled;
   await page
     .getByRole("textbox", { name: "Order ID", exact: true })
     .fill(otherId);
@@ -52,11 +100,7 @@ test("late results for a previous order cannot replace the newly selected order"
   await expect(
     page.getByRole("region", { name: "Order overview" }),
   ).toContainText("Second recipient");
-  const lateResponse = page.waitForResponse(
-    (response) => new URL(response.url()).pathname === readPaths.Order,
-  );
   release();
-  await lateResponse;
   await expect(page).toHaveURL(`/orders/${otherId}`);
   await expect(
     page.getByRole("region", { name: "Order overview" }),

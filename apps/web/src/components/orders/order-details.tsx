@@ -16,6 +16,7 @@ import {
   readError,
   sameId,
 } from "@/lib/orders/view";
+import { useOrderPolling } from "@/lib/orders/polling";
 import { demoProducts, formatMinor } from "@/lib/checkout/form";
 import { useUiStore } from "../providers/state-provider";
 import { SubmissionResult } from "../checkout/submission-result";
@@ -257,6 +258,14 @@ export function OrderDetails({ orderId }: { orderId: string }) {
   const query = useGetOrderQuery(orderId, manualQueryOptions);
   const data = query.currentData?.body;
   const verified = !!data && matchesOrder(data, orderId);
+  const { isPolling } = useOrderPolling({
+    orderId,
+    order: verified ? data : undefined,
+    error: query.error,
+    requestId: query.requestId,
+    isFetching: query.isFetching,
+    refetch: query.refetch,
+  });
   const remember = useUiStore((state) => state.addRecentOrder);
   const hydration = useUiStore((state) => state.hydration);
   useEffect(() => {
@@ -273,7 +282,7 @@ export function OrderDetails({ orderId }: { orderId: string }) {
       <PageHeading
         eyebrow="ORDER MANAGEMENT"
         title="Order details"
-        description="Read-only snapshots from the order and participant services. Automatic polling arrives in Step 9."
+        description="The active order status refreshes automatically while this page is open. Participant snapshots can still be refreshed independently."
         action={
           <ButtonLink variant="secondary" href="/orders">
             Find another order
@@ -295,7 +304,12 @@ export function OrderDetails({ orderId }: { orderId: string }) {
             Refresh order
           </Button>
         </div>
-        {query.isFetching ? (
+        {isPolling && (
+          <p role="status" aria-live="polite">
+            Updating active order status automatically every few seconds.
+          </p>
+        )}
+        {query.isFetching && !verified ? (
           <p role="status">Checking order…</p>
         ) : query.error ? (
           <p role="alert">
@@ -392,7 +406,7 @@ export function OrderDetails({ orderId }: { orderId: string }) {
           </>
         )}
       </Card>
-      {verified && data && !query.error && !query.isFetching && (
+      {verified && data && !query.error && (
         <Participants
           key={data.saga.id}
           orderId={orderId}

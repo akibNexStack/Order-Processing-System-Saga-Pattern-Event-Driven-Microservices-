@@ -8,7 +8,7 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile.backend
     dockerContext: .
-    dockerCommand: /bin/sh -c 'node scripts/migrate-service.mjs order-orchestrator && exec node scripts/render-start.mjs order-orchestrator'
+    dockerCommand: node scripts/render-boot.mjs order-orchestrator
     plan: free
     region: singapore
     healthCheckPath: /health
@@ -29,7 +29,7 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile.backend
     dockerContext: .
-    dockerCommand: /bin/sh -c 'node scripts/migrate-service.mjs payment-service && exec node scripts/render-start.mjs payment-service'
+    dockerCommand: node scripts/render-boot.mjs payment-service
     plan: free
     region: singapore
     healthCheckPath: /health
@@ -50,7 +50,7 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile.backend
     dockerContext: .
-    dockerCommand: /bin/sh -c 'node scripts/migrate-service.mjs inventory-service && exec node scripts/render-start.mjs inventory-service'
+    dockerCommand: node scripts/render-boot.mjs inventory-service
     plan: free
     region: singapore
     healthCheckPath: /health
@@ -71,7 +71,7 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile.backend
     dockerContext: .
-    dockerCommand: /bin/sh -c 'node scripts/migrate-service.mjs shipping-service && exec node scripts/render-start.mjs shipping-service'
+    dockerCommand: node scripts/render-boot.mjs shipping-service
     plan: free
     region: singapore
     healthCheckPath: /health

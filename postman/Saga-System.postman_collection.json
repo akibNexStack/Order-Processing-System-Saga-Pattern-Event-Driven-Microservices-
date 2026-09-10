@@ -17,22 +17,22 @@
   "variable": [
     {
       "key": "orders_url",
-      "value": "http://localhost:3000",
+      "value": "https://saga-orders.onrender.com",
       "type": "string"
     },
     {
       "key": "payment_url",
-      "value": "http://localhost:3001",
+      "value": "https://saga-payment.onrender.com",
       "type": "string"
     },
     {
       "key": "inventory_url",
-      "value": "http://localhost:3002",
+      "value": "https://saga-inventory.onrender.com",
       "type": "string"
     },
     {
       "key": "shipping_url",
-      "value": "http://localhost:3003",
+      "value": "https://saga-shipping.onrender.com",
       "type": "string"
     },
     {

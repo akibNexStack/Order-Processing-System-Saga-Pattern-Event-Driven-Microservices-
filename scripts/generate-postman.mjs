@@ -3,10 +3,12 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 // Source for the importable artifacts. Run from any directory with Node.
 const directory = new URL('../postman/', import.meta.url);
 const vars = {
-  orders_url: 'http://localhost:3000', payment_url: 'http://localhost:3001',
-  inventory_url: 'http://localhost:3002', shipping_url: 'http://localhost:3003',
-  // Kept blank in committed artifacts. Set only in a Postman environment for
-  // hosted services; local services intentionally accept an empty value.
+  // Default to the deployed Render services. Import the Local environment to
+  // override these values when testing services running on this machine.
+  orders_url: 'https://saga-orders.onrender.com', payment_url: 'https://saga-payment.onrender.com',
+  inventory_url: 'https://saga-inventory.onrender.com', shipping_url: 'https://saga-shipping.onrender.com',
+  // Kept blank in committed artifacts. Set it in Postman for hosted services;
+  // local services intentionally accept an empty value.
   backend_api_token: '',
   customer_id: '33333333-3333-4333-8333-333333333333',
   keyboard_id: '44444444-4444-4444-8444-444444444444',
@@ -230,7 +232,13 @@ mkdirSync(directory, { recursive: true });
 writeFileSync(new URL('Saga-System.postman_collection.json', directory), JSON.stringify(collection, null, 2) + '\n');
 writeFileSync(new URL('Local.postman_environment.json', directory), JSON.stringify({
   name: 'Saga System — Local', _postman_variable_scope: 'environment',
-  values: Object.entries(vars).filter(([key]) => key.endsWith('_url') || ['customer_id', 'keyboard_id', 'mouse_id', 'empty_product_id', 'poll_max_attempts', 'poll_delay_ms', 'enabled_optional_folder', 'recovery_order_id'].includes(key))
+  values: Object.entries({
+    ...vars,
+    orders_url: 'http://localhost:3000',
+    payment_url: 'http://localhost:3001',
+    inventory_url: 'http://localhost:3002',
+    shipping_url: 'http://localhost:3003',
+  }).filter(([key]) => key.endsWith('_url') || ['customer_id', 'keyboard_id', 'mouse_id', 'empty_product_id', 'poll_max_attempts', 'poll_delay_ms', 'enabled_optional_folder', 'recovery_order_id'].includes(key))
     .map(([key, value]) => ({ key, value, enabled: true, type: 'default' })),
 }, null, 2) + '\n');
 const renderVars = {

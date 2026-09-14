@@ -11,7 +11,7 @@ import {
 import { useCreateOrderMutation } from "@/lib/api/api";
 import { submitCheckout } from "@/lib/checkout/submission";
 import {
-  demoProducts,
+  products,
   formatMinor,
   validateCheckoutDraft,
 } from "@/lib/checkout/form";
@@ -79,8 +79,6 @@ const addressFields: {
 export function CheckoutForm() {
   const draft = useCheckoutStore((state) => state.draft);
   const updateDraft = useCheckoutStore((state) => state.updateDraft);
-  const amount = useCheckoutStore((state) => state.amountInput);
-  const setAmount = useCheckoutStore((state) => state.setAmountInput);
   const reset = useCheckoutStore((state) => state.resetCheckout);
   const phase = useCheckoutStore((state) => state.submission);
   const submissionError = useCheckoutStore((state) => state.error);
@@ -158,12 +156,12 @@ export function CheckoutForm() {
       <PageHeading
         eyebrow="CHECKOUT"
         title="Create order"
-        description="Choose demo products, enter delivery details, and submit your order."
+        description="Choose products, delivery details, and a payment method."
       />
       <p className="checkout-notice">
-        Demo checkout · Live submission. Create order sends a real request to
-        the configured backend, which may charge, reserve inventory, and arrange
-        shipping. Validate order checks locally only. Drafts and retry keys stay
+        The server calculates the total from its catalog. Cash on Delivery starts
+        fulfillment immediately; bank transfer waits for payment confirmation.
+        Drafts and retry keys stay
         in memory in this tab and are lost on reload or close. Keep this tab
         open until the submission outcome is known.
       </p>
@@ -217,18 +215,17 @@ export function CheckoutForm() {
                 className="demo-products"
                 aria-describedby="demo-products-note"
               >
-                <legend>Demo products</legend>
+                <legend>Products</legend>
                 <p id="demo-products-note">
-                  These IDs match the inventory seed. Initial stock is shown for
-                  context only—not live availability. Products have no catalog
-                  prices.
+                  Product prices are shown for convenience. The server verifies
+                  the total before it saves the order.
                 </p>
                 {errors.items && (
                   <p id="items-error" className="field-error">
                     Select at least one product. {errors.items}
                   </p>
                 )}
-                {demoProducts.map((product) => {
+                {products.map((product) => {
                   const index = draft.items.findIndex(
                     (item) => item.productId === product.id,
                   );
@@ -259,17 +256,10 @@ export function CheckoutForm() {
                         <span>
                           {product.name}
                           <small>
-                            {product.sku} · Initial seed stock:{" "}
-                            {product.initialStock}
+                            {product.sku} · {draft.currency} {formatMinor(product.priceMinor)}
                           </small>
                         </span>
                       </label>
-                      {product.initialStock === 0 && (
-                        <p className="field-hint">
-                          Seeded with zero stock for insufficient-stock
-                          demonstrations. Current stock is not checked here.
-                        </p>
-                      )}
                       {item && (
                         <Input
                           label={`Quantity for ${product.name}`}
@@ -307,27 +297,18 @@ export function CheckoutForm() {
               </fieldset>
             </fieldset>
             <fieldset disabled={locked} className="checkout-fields">
-              <legend>Demo amount</legend>
+              <legend>Payment</legend>
               <p className="field-hint">
-                Enter a total manually for testing. This is not a calculated
-                price or a payment quote. Changing currency does not convert the
-                amount.
+                Cash on Delivery starts fulfillment immediately. Bank transfer
+                orders wait until an authorized operator confirms payment.
               </p>
               <div className="field-grid">
-                <Input
-                  label="Amount"
-                  id="order-amount"
-                  required
-                  inputMode="decimal"
-                  value={amount}
-                  placeholder="0.00"
-                  onChange={(event) => {
-                    if (setAmount(event.target.value)) setValidated(false);
-                  }}
-                  error={errors.amountMinor}
-                  hint="0.01–99,999,999.99; up to two decimal places."
-                  autoComplete="off"
-                />
+                <div className="field">
+                  <label>Order total</label>
+                  <p className="field-hint">
+                    {draft.amountMinor === null ? "Select products" : `${draft.currency} ${formatMinor(draft.amountMinor)}`}
+                  </p>
+                </div>
                 <div className="field">
                   <label htmlFor="order-currency">
                     Currency <span aria-hidden="true">*</span>
@@ -353,6 +334,18 @@ export function CheckoutForm() {
                       {errors.currency}
                     </p>
                   )}
+                </div>
+                <div className="field">
+                  <label htmlFor="payment-method">Payment method</label>
+                  <select
+                    id="payment-method"
+                    className="input"
+                    value={draft.paymentMethod ?? "COD"}
+                    onChange={(event) => edit({ paymentMethod: event.target.value as "COD" | "BANK_TRANSFER" })}
+                  >
+                    <option value="COD">Cash on Delivery</option>
+                    <option value="BANK_TRANSFER">Bank Transfer</option>
+                  </select>
                 </div>
               </div>
             </fieldset>
@@ -444,7 +437,7 @@ export function CheckoutForm() {
             <ul>
               {draft.items.map((item) => (
                 <li key={item.productId}>
-                  {demoProducts.find((product) => product.id === item.productId)
+                  {products.find((product) => product.id === item.productId)
                     ?.name ?? item.productId}{" "}
                   ×{" "}
                   {Number.isInteger(item.quantity) &&

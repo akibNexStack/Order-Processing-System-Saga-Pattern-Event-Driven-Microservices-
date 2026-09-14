@@ -6,6 +6,7 @@ import {
   useGetPaymentQuery,
   useGetReservationQuery,
   useGetShipmentQuery,
+  useConfirmPaymentMutation,
 } from "@/lib/api/api";
 import type { ApiResponse } from "@/lib/api/base-query";
 import {
@@ -270,6 +271,7 @@ export function OrderDetails({ orderId }: { orderId: string }) {
     refetch: query.refetch,
   });
   const remember = useUiStore((state) => state.addRecentOrder);
+  const [confirmPayment, confirmation] = useConfirmPaymentMutation();
   const hydration = useUiStore((state) => state.hydration);
   useEffect(() => {
     if (
@@ -341,6 +343,7 @@ export function OrderDetails({ orderId }: { orderId: string }) {
               values={{
                 "Customer ID": data.order.customerId,
                 Amount: `${data.order.currency} ${formatMinor(data.order.amountMinor)}`,
+                "Payment method": data.order.paymentMethod === "COD" ? "Cash on Delivery" : "Bank Transfer",
                 "Integer minor units": data.order.amountMinor,
                 Created: data.order.createdAt,
                 "Saga ID": data.saga.id,
@@ -406,6 +409,14 @@ export function OrderDetails({ orderId }: { orderId: string }) {
                 </address>
               </div>
             </div>
+            {data.saga.status === "PENDING_PAYMENT" && data.order.paymentMethod === "BANK_TRANSFER" && (
+              <div className="checkout-actions">
+                <Button disabled={confirmation.isLoading} onClick={() => void confirmPayment(orderId)}>
+                  {confirmation.isLoading ? "Confirming payment…" : "Confirm bank-transfer payment"}
+                </Button>
+                <p className="field-hint">Operator action: confirm only after verifying the bank-transfer reference.</p>
+              </div>
+            )}
           </>
         )}
       </Card>

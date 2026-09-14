@@ -3,7 +3,7 @@ import { pgTable, boolean, uuid, varchar, text, bigint, integer, jsonb, timestam
 
 const createdAt = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow();
 const updatedAt = () => timestamp('updated_at', { withTimezone: true }).notNull().defaultNow();
-import type { ShippingAddress, OrderPayload, SagaStatus, SagaStep } from '@saga/shared';
+import type { ShippingAddress, OrderPayload, SagaStatus, SagaStep, PaymentMethod } from '@saga/shared';
 
 export const orders = pgTable('orders', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -12,6 +12,7 @@ export const orders = pgTable('orders', {
   fingerprint: varchar('fingerprint', { length: 64 }).notNull(),
   amountMinor: bigint('amount_minor', { mode: 'number' }).notNull(),
   currency: varchar('currency', { length: 3 }).notNull(),
+  paymentMethod: varchar('payment_method', { length: 20 }).$type<PaymentMethod>().notNull().default('COD'),
   shippingAddress: jsonb('shipping_address').$type<ShippingAddress>().notNull(),
   createdAt: createdAt(),
 }, (t) => [
@@ -20,6 +21,7 @@ export const orders = pgTable('orders', {
   check('order_fingerprint_valid', sql`${t.fingerprint} ~ '^[0-9a-f]{64}$'`),
   check('order_amount_valid', sql`${t.amountMinor} BETWEEN 1 AND 9999999999`),
   check('order_currency_valid', sql`${t.currency} IN ('USD', 'BDT')`),
+  check('order_payment_method_valid', sql`${t.paymentMethod} IN ('COD', 'BANK_TRANSFER')`),
   check('order_address_object', sql`jsonb_typeof(${t.shippingAddress}) = 'object'`),
   index('orders_created_idx').on(t.createdAt),
 ]);
@@ -59,7 +61,7 @@ export const sagaInstances = pgTable('saga_instances', {
 }, (t) => [
   check('saga_recovery_attempts_valid', sql`${t.recoveryAttempts} >= 0`),
   check('saga_operation_valid', sql`${t.currentOperation} IN ('CHARGE_PAYMENT', 'RESERVE_INVENTORY', 'CREATE_SHIPMENT', 'FINALIZE_INVENTORY')`),
-  check('saga_status_valid', sql`${t.status} IN ('IN_PROGRESS', 'COMPENSATING', 'COMPLETED', 'FAILED')`),
+  check('saga_status_valid', sql`${t.status} IN ('PENDING_PAYMENT', 'IN_PROGRESS', 'COMPENSATING', 'COMPLETED', 'FAILED')`),
   check('saga_step_valid', sql`${t.currentStep} IN ('PAYMENT', 'INVENTORY', 'SHIPPING')`),
   check('saga_completed_valid', sql`jsonb_typeof(${t.completedSteps}) = 'array' AND ${t.completedSteps} <@ '["PAYMENT","INVENTORY","SHIPPING"]'::jsonb`),
   check('saga_compensated_valid', sql`jsonb_typeof(${t.compensatedSteps}) = 'array' AND ${t.compensatedSteps} <@ ${t.completedSteps}`),
@@ -83,8 +85,8 @@ export const sagaTransitions = pgTable('saga_transitions', {
 }, (t) => [
   unique('transition_sequence_unique').on(t.sagaId, t.sequence),
   check('transition_sequence_valid', sql`${t.sequence} > 0`),
-  check('transition_from_valid', sql`${t.fromStatus} IS NULL OR ${t.fromStatus} IN ('IN_PROGRESS', 'COMPENSATING', 'COMPLETED', 'FAILED')`),
-  check('transition_to_valid', sql`${t.toStatus} IN ('IN_PROGRESS', 'COMPENSATING', 'COMPLETED', 'FAILED')`),
+  check('transition_from_valid', sql`${t.fromStatus} IS NULL OR ${t.fromStatus} IN ('PENDING_PAYMENT', 'IN_PROGRESS', 'COMPENSATING', 'COMPLETED', 'FAILED')`),
+  check('transition_to_valid', sql`${t.toStatus} IN ('PENDING_PAYMENT', 'IN_PROGRESS', 'COMPENSATING', 'COMPLETED', 'FAILED')`),
   check('transition_step_valid', sql`${t.step} IN ('PAYMENT', 'INVENTORY', 'SHIPPING')`),
   check('transition_direction_valid', sql`${t.direction} IN ('FORWARD', 'COMPENSATION')`),
   check('transition_details_object', sql`jsonb_typeof(${t.details}) = 'object'`),

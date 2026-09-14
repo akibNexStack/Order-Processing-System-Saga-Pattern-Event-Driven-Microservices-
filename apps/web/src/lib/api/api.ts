@@ -95,6 +95,15 @@ export const sagaApi = createApi({
       },
       invalidatesTags: (_r, _e, id) => [{ type: "Order", id }, "Attention", "Payment", "Inventory", "Shipment"],
     }),
+    confirmPayment: build.mutation<Reply<typeof c.OrderStateSchema>, string>({
+      query: (id) => ({
+        url: `${idPath("orders", id)}/confirm-payment`,
+        method: "POST",
+        schema: c.OrderStateSchema,
+        statuses: [202],
+      }),
+      invalidatesTags: (_r, _e, id) => [{ type: "Order", id }, "Payment", "Inventory", "Shipment"],
+    }),
     getPayment: build.query<Reply<typeof c.PaymentStateSchema>, string>({
       query: (id) => ({
         url: idPath("payments", id),
@@ -195,6 +204,7 @@ export const {
   useGetOrderHistoryQuery,
   useGetAttentionQuery,
   useResumeOrderMutation,
+  useConfirmPaymentMutation,
   useGetPaymentQuery,
   useChargePaymentMutation,
   useRefundPaymentMutation,

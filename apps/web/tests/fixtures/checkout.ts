@@ -7,6 +7,7 @@ export const payload: CreateOrderRequest["payload"] = {
   items: [{ productId: "44444444-4444-4444-8444-444444444444", quantity: 2 }],
   amountMinor: 29,
   currency: "BDT",
+  paymentMethod: "COD",
   shippingAddress: {
     recipient: "Private Demo User",
     line1: "Private Test Road",
@@ -65,7 +66,6 @@ export function orderReply(
 export async function fillCheckout(page: Page) {
   for (const [name, value] of Object.entries({
     "Customer ID": payload.customerId,
-    Amount: "0.29",
     Recipient: payload.shippingAddress.recipient,
     "Address line 1": payload.shippingAddress.line1,
     City: "Dhaka",
@@ -74,10 +74,10 @@ export async function fillCheckout(page: Page) {
   })) {
     await page.getByRole("textbox", { name, exact: true }).fill(value);
   }
-  await page.getByRole("checkbox", { name: /Demo Keyboard/ }).check();
+  await page.getByRole("checkbox", { name: /Keyboard/ }).check();
   await page
     .getByRole("spinbutton", {
-      name: "Quantity for Demo Keyboard",
+      name: "Quantity for Keyboard",
       exact: true,
     })
     .fill("2");

@@ -10,7 +10,7 @@ export function forwardOperation(value: string): ForwardOperation {
   return value as ForwardOperation;
 }
 export function buildCommand(operation: ForwardOperation | 'REFUND_PAYMENT' | 'RELEASE_INVENTORY' | 'CANCEL_SHIPMENT', orderId: string, sagaId: string, order: OrderPayload): Command {
-  const payload = operation === 'CHARGE_PAYMENT' ? { customerId: order.customerId, amountMinor: order.amountMinor, currency: order.currency }
+  const payload = operation === 'CHARGE_PAYMENT' ? { customerId: order.customerId, amountMinor: order.amountMinor, currency: order.currency, paymentMethod: order.paymentMethod ?? 'COD' }
     : operation === 'RESERVE_INVENTORY' ? { items: order.items }
     : operation === 'CREATE_SHIPMENT' ? { items: order.items, shippingAddress: order.shippingAddress } : {};
   return CommandSchema.parse({ version: 1, orderId, sagaId, operation, idempotencyKey: commandKey(sagaId, operation), payload });

@@ -22,6 +22,7 @@ import { RecoveryWorker } from '../../services/order-orchestrator/dist/saga/reco
 import { readiness, structuredLogger } from '@saga/shared/messaging';
 import { BrokerOrderService } from '../../services/order-orchestrator/dist/saga/brokerOrders.js';
 import { RabbitWorker, participantHandler, topology, confirmed, relayOnce, EnvelopeSchema } from '@saga/shared/messaging';
+import { catalog } from '@saga/shared';
 import amqp from 'amqplib';
 
 const uncertain = c => {
@@ -88,8 +89,8 @@ test('Recovery workers, deadlines, leases and observability', async t => {
     let orderWorker = makeWorker('orders');
     const participants = ['payment', 'inventory', 'shipping'].map(name => makeWorker(name));
     const request = async (stock = 10) => {
-      const productId = randomUUID();
-      await dbs.INVENTORY.pool.query("INSERT INTO products(id,sku,name,available_stock) VALUES ($1,$2,'Broker test',$3)", [productId, productId, stock]);
+      const productId = catalog[0].id;
+      await dbs.INVENTORY.pool.query("INSERT INTO products(id,sku,name,available_stock) VALUES ($1,$2,'Broker test',$3) ON CONFLICT (id) DO UPDATE SET available_stock=EXCLUDED.available_stock", [productId, productId, stock]);
       return { idempotencyKey: randomUUID(), payload: { customerId: randomUUID(), items: [{ productId, quantity: 2 }], amountMinor: 12500, currency: 'BDT',
         shippingAddress: { recipient: 'Test', line1: '10 Road', city: 'Dhaka', postalCode: '1207', countryCode: 'BD' } } };
     };
@@ -117,7 +118,7 @@ test('Recovery workers, deadlines, leases and observability', async t => {
       dropResult = e => { if (e.body.operation === 'CHARGE_PAYMENT' && !dropped) { dropped = e; return true; } return false; };
       const first = await post(app, await request());
       await eventually(() => Promise.resolve(dropped), Boolean);
-      assert.equal((await row('PAYMENT', 'payments', first.body.order.id)).status, 'CHARGED');
+      assert.equal((await row('PAYMENT', 'payments', first.body.order.id)).status, 'PAY_ON_DELIVERY');
       await expire(first.body.order.id);
       const restarted = new RecoveryWorker(new BrokerOrderService(dbs.ORDER.pool, 50, 1000), 30); recoveries.push(restarted);
       restarted.start();

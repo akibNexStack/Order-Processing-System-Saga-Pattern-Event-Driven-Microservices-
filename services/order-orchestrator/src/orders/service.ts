@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { and, asc, eq, isNotNull, desc } from 'drizzle-orm';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type pg from 'pg';
-import { CreateOrderRequestSchema, orderFingerprint, ResultSchema, type Command, type CreateOrderRequest, type Result, type SagaStatus } from '@saga/shared';
+import { calculateOrderTotal, CreateOrderRequestSchema, orderFingerprint, ResultSchema, type Command, type CreateOrderRequest, type Result, type SagaStatus } from '@saga/shared';
 import { orders, orderItems, sagaInstances, sagaTransitions } from '../db/schema.js';
 import { buildCommand, FORWARD_OPERATIONS, forwardOperation, STEP_FOR_OPERATION } from '../saga/stateMachine.js';
 import { nextCompensation } from '../saga/compensate.js';
@@ -15,12 +15,12 @@ export class OrderService {
 
   async accept(input: CreateOrderRequest): Promise<{ orderId: string; created: boolean }> {
     const parsed = CreateOrderRequestSchema.parse(input);
-    const payload = { ...parsed.payload, customerId: parsed.payload.customerId.toLowerCase(),
+    const payload = { ...parsed.payload, paymentMethod: parsed.payload.paymentMethod ?? 'COD', amountMinor: calculateOrderTotal(parsed.payload.items), customerId: parsed.payload.customerId.toLowerCase(),
       items: parsed.payload.items.map(item => ({ ...item, productId: item.productId.toLowerCase() })).sort((a, b) => a.productId.localeCompare(b.productId)) };
     const fingerprint = orderFingerprint(payload);
     return drizzle(this.pool).transaction(async tx => {
       const [inserted] = await tx.insert(orders).values({ customerId: payload.customerId, idempotencyKey: parsed.idempotencyKey, fingerprint,
-        amountMinor: payload.amountMinor, currency: payload.currency, shippingAddress: payload.shippingAddress })
+        amountMinor: payload.amountMinor, currency: payload.currency, paymentMethod: payload.paymentMethod, shippingAddress: payload.shippingAddress })
         .onConflictDoNothing({ target: [orders.customerId, orders.idempotencyKey] }).returning();
       if (!inserted) {
         const [existing] = await tx.select().from(orders).where(and(eq(orders.customerId, payload.customerId), eq(orders.idempotencyKey, parsed.idempotencyKey)));
@@ -28,8 +28,9 @@ export class OrderService {
         return { orderId: existing.id, created: false };
       }
       await tx.insert(orderItems).values(payload.items.map(item => ({ orderId: inserted.id, ...item })));
-      const [saga] = await tx.insert(sagaInstances).values({ orderId: inserted.id, payload, version: 1 }).returning();
-      await tx.insert(sagaTransitions).values({ sagaId: saga.id, sequence: 1, toStatus: 'IN_PROGRESS', step: 'PAYMENT', direction: 'FORWARD', details: { event: 'ORDER_ACCEPTED' } });
+      const initialStatus: SagaStatus = payload.paymentMethod === 'BANK_TRANSFER' ? 'PENDING_PAYMENT' : 'IN_PROGRESS';
+      const [saga] = await tx.insert(sagaInstances).values({ orderId: inserted.id, payload, status: initialStatus, version: 1 }).returning();
+      await tx.insert(sagaTransitions).values({ sagaId: saga.id, sequence: 1, toStatus: initialStatus, step: 'PAYMENT', direction: 'FORWARD', details: { event: 'ORDER_ACCEPTED' } });
       await this.onAccepted(tx, saga);
       return { orderId: inserted.id, created: true };
     });
@@ -93,6 +94,10 @@ export class OrderService {
       client.release(discard);
     }
   }
+
+  // Broker-backed deployments override this. It deliberately has no default
+  // behavior: a bank transfer must never be advanced by an ordinary GET/retry.
+  async confirmPayment(_orderId: string): Promise<void> { throw new Error('Payment confirmation is unavailable'); }
 
   private async execute(command: Command): Promise<Result> {
     try {

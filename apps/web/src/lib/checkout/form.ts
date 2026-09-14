@@ -3,27 +3,17 @@ import {
   OrderPayloadSchema,
   type OrderPayload,
 } from "@saga/shared/contracts";
+import { calculateOrderTotal, catalog } from "@saga/shared";
 
+export const products = catalog;
 export const demoProducts = [
-  {
-    id: "44444444-4444-4444-8444-444444444444",
-    sku: "DEMO-KEYBOARD",
-    name: "Demo Keyboard",
-    initialStock: 100,
-  },
-  {
-    id: "55555555-5555-4555-8555-555555555555",
-    sku: "DEMO-MOUSE",
-    name: "Demo Mouse",
-    initialStock: 50,
-  },
-  {
-    id: "66666666-6666-4666-8666-666666666666",
-    sku: "DEMO-MONITOR",
-    name: "Demo Monitor",
-    initialStock: 0,
-  },
+  { id: "44444444-4444-4444-8444-444444444444", sku: "DEMO-KEYBOARD", name: "Demo Keyboard", initialStock: 100 },
+  { id: "55555555-5555-4555-8555-555555555555", sku: "DEMO-MOUSE", name: "Demo Mouse", initialStock: 50 },
+  { id: "66666666-6666-4666-8666-666666666666", sku: "DEMO-MONITOR", name: "Demo Monitor", initialStock: 0 },
 ] as const;
+export function calculateCheckoutTotal(items: OrderPayload["items"]): number | null {
+  try { return calculateOrderTotal(items); } catch { return null; }
+}
 
 // Decimal-string arithmetic: never multiply a floating-point currency amount.
 export function parseAmountMinor(input: string): number | null {
@@ -36,7 +26,7 @@ export function parseAmountMinor(input: string): number | null {
 export function formatMinor(minor: number): string {
   return `${Math.floor(minor / 100)}.${String(minor % 100).padStart(2, "0")}`;
 }
-type Draft = Omit<OrderPayload, "amountMinor"> & { amountMinor: number | null };
+type Draft = Omit<OrderPayload, "amountMinor" | "paymentMethod"> & { amountMinor: number | null; paymentMethod?: OrderPayload["paymentMethod"] };
 function normalizeDraft(draft: Draft) {
   const address = { ...draft.shippingAddress };
   if (!address.line2?.trim()) delete address.line2;
@@ -44,6 +34,7 @@ function normalizeDraft(draft: Draft) {
   address.countryCode = address.countryCode.trim().toUpperCase();
   return {
     ...draft,
+    paymentMethod: draft.paymentMethod ?? "COD",
     customerId: draft.customerId.trim().toLowerCase(),
     shippingAddress: address,
   };
@@ -56,7 +47,7 @@ export function validateCheckoutDraft(draft: Draft) {
       const path = issue.path.join(".");
       errors[path] ??=
         path === "amountMinor"
-          ? "Enter 0.01–99,999,999.99 with at most two decimal places; no commas or exponents."
+          ? "Select an available product with a valid quantity."
           : issue.message;
     }
   return { parsed, errors };

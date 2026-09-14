@@ -13,7 +13,7 @@ export class PaymentService {
   async execute(input: PaymentCommand, commit?: ResultCommit): Promise<Result> {
     const parsed = input.operation === 'CHARGE_PAYMENT' ? ChargePaymentCommandSchema.parse(input) : RefundPaymentCommandSchema.parse(input);
     const command: PaymentCommand = { ...parsed, orderId: parsed.orderId.toLowerCase(), sagaId: parsed.sagaId.toLowerCase(),
-      ...(parsed.operation === 'CHARGE_PAYMENT' ? { payload: { ...parsed.payload, customerId: parsed.payload.customerId.toLowerCase() } } : {}),
+      ...(parsed.operation === 'CHARGE_PAYMENT' ? { payload: { ...parsed.payload, customerId: parsed.payload.customerId.toLowerCase(), paymentMethod: parsed.payload.paymentMethod ?? 'COD' } } : {}),
     } as PaymentCommand;
     const client = await this.pool.connect();
     const lock = `payment-service:${command.orderId}`;
@@ -41,7 +41,7 @@ export class PaymentService {
       if ((payment && payment.sagaId !== command.sagaId) || (refund && refund.sagaId !== command.sagaId)) {
         result = failure(command, 'IDEMPOTENCY_CONFLICT', 'Order belongs to another saga');
       } else if (command.operation === 'CHARGE_PAYMENT') {
-        if (payment && (payment.customerId !== command.payload.customerId || payment.amountMinor !== command.payload.amountMinor || payment.currency !== command.payload.currency)) {
+        if (payment && (payment.customerId !== command.payload.customerId || payment.amountMinor !== command.payload.amountMinor || payment.currency !== command.payload.currency || payment.paymentMethod !== command.payload.paymentMethod)) {
           result = failure(command, 'IDEMPOTENCY_CONFLICT', 'Order payment details cannot change');
         } else if (refund || payment?.status === 'REFUNDED') {
           result = failure(command, 'ALREADY_COMPENSATED', 'Payment has a compensation request');
@@ -58,7 +58,7 @@ export class PaymentService {
           if (payment?.status === 'PENDING') chargeResult = await this.resolveCharge(db, payment);
           if (chargeResult?.outcome === 'UNKNOWN') {
             result = unknown(command, 'Original charge is unresolved; retry refund with the same key');
-          } else if (!payment || payment.status === 'FAILED' || chargeResult?.outcome === 'FAILED') {
+          } else if (!payment || payment.status === 'FAILED' || payment.status === 'PAY_ON_DELIVERY' || chargeResult?.outcome === 'FAILED') {
             result = success(command, { status: 'NOOP' });
           } else {
             result = resultFor(command, await this.callProvider({ ...command, idempotencyKey: commandKey(command.sagaId, command.operation) }));
@@ -95,10 +95,10 @@ export class PaymentService {
     if (payment.chargeResult) return ResultSchema.parse(payment.chargeResult);
     const command = ChargePaymentCommandSchema.parse({ version: 1, orderId: payment.orderId, sagaId: payment.sagaId,
       idempotencyKey: commandKey(payment.sagaId, 'CHARGE_PAYMENT'), operation: 'CHARGE_PAYMENT',
-      payload: { customerId: payment.customerId, amountMinor: payment.amountMinor, currency: payment.currency } });
+      payload: { customerId: payment.customerId, amountMinor: payment.amountMinor, currency: payment.currency, paymentMethod: payment.paymentMethod as 'COD' | 'BANK_TRANSFER' } });
     const result = await this.callProvider(command);
     if (result.outcome !== 'UNKNOWN') {
-      await db.update(payments).set({ status: result.outcome === 'SUCCEEDED' ? 'CHARGED' : 'FAILED',
+      await db.update(payments).set({ status: result.outcome === 'SUCCEEDED' ? (payment.paymentMethod === 'COD' ? 'PAY_ON_DELIVERY' : 'CHARGED') : 'FAILED',
         providerTransactionId: result.outcome === 'SUCCEEDED' && result.operation === 'CHARGE_PAYMENT' ? result.data.providerTransactionId : null,
         chargeResult: result, updatedAt: new Date(),
       }).where(eq(payments.id, payment.id));

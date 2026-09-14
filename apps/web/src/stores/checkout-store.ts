@@ -3,14 +3,16 @@ import {
   parseAmountMinor,
   formatMinor,
   buildCreateOrderRequest,
+  calculateCheckoutTotal,
 } from "../lib/checkout/form";
 import {
   type CreateOrderRequest,
   type OrderPayload,
 } from "@saga/shared/contracts";
 
-export type CheckoutDraft = Omit<OrderPayload, "amountMinor"> & {
+export type CheckoutDraft = Omit<OrderPayload, "amountMinor" | "paymentMethod"> & {
   amountMinor: number | null;
+  paymentMethod?: OrderPayload["paymentMethod"];
 };
 export type SubmissionPhase = "idle" | "submitting" | "uncertain" | "settled";
 export interface SubmissionReceipt {
@@ -41,6 +43,7 @@ const emptyDraft = (): CheckoutDraft => ({
   items: [],
   amountMinor: null,
   currency: "BDT",
+  paymentMethod: "COD",
   shippingAddress: {
     recipient: "",
     line1: "",
@@ -84,7 +87,7 @@ export function createCheckoutStore(
     updateDraft(patch) {
       if (get().submission !== "idle") return false;
       set({
-        draft: structuredClone({ ...get().draft, ...patch }),
+        draft: structuredClone({ ...get().draft, ...patch, ...(Object.hasOwn(patch, "items") ? { amountMinor: calculateCheckoutTotal(patch.items ?? []) } : {}) }),
         ...(Object.hasOwn(patch, "amountMinor")
           ? {
               amountInput:

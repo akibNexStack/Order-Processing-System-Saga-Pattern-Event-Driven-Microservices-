@@ -51,6 +51,17 @@ export function createApp(service: OrderService, ready?: Readiness) {
     const state = await service.status(id.data.toLowerCase());
     return state ? c.json(state) : c.json({ error: 'Order not found' }, 404);
   });
+  app.post('/orders/:orderId/confirm-payment', async c => {
+    const id = IdSchema.safeParse(c.req.param('orderId'));
+    if (!id.success) return c.json({ error: 'Invalid order ID' }, 400);
+    const orderId = id.data.toLowerCase();
+    if (!await service.status(orderId)) return c.json({ error: 'Order not found' }, 404);
+    try { await service.confirmPayment(orderId); }
+    catch { return c.json({ error: 'Payment confirmation is unavailable' }, 409); }
+    const state = await service.status(orderId);
+    c.header('Retry-After', '1');
+    return c.json(state, 202);
+  });
   app.post('/orders/:orderId/resume', async c => {
     const id = IdSchema.safeParse(c.req.param('orderId'));
     if (!id.success) return c.json({ error: 'Invalid order ID' }, 400);

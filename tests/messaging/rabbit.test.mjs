@@ -20,6 +20,7 @@ import { LocalShippingProvider } from '../../services/shipping-service/dist/prov
 import { createApp } from '../../services/order-orchestrator/dist/app.js';
 import { BrokerOrderService } from '../../services/order-orchestrator/dist/saga/brokerOrders.js';
 import { RabbitWorker, participantHandler, topology, confirmed, relayOnce, EnvelopeSchema } from '@saga/shared/messaging';
+import { catalog } from '@saga/shared';
 import amqp from 'amqplib';
 
 const uncertain = c => {
@@ -84,8 +85,8 @@ test('RabbitMQ saga, durable outboxes, redelivery and compensation', async t => 
     let orderWorker = makeWorker('orders');
     const participants = ['payment', 'inventory', 'shipping'].map(name => makeWorker(name));
     const request = async (stock = 10) => {
-      const productId = randomUUID();
-      await dbs.INVENTORY.pool.query("INSERT INTO products(id,sku,name,available_stock) VALUES ($1,$2,'Broker test',$3)", [productId, productId, stock]);
+      const productId = catalog[0].id;
+      await dbs.INVENTORY.pool.query("INSERT INTO products(id,sku,name,available_stock) VALUES ($1,$2,'Broker test',$3) ON CONFLICT (id) DO UPDATE SET available_stock=EXCLUDED.available_stock", [productId, productId, stock]);
       return { idempotencyKey: randomUUID(), payload: { customerId: randomUUID(), items: [{ productId, quantity: 2 }], amountMinor: 12500, currency: 'BDT',
         shippingAddress: { recipient: 'Test', line1: '10 Road', city: 'Dhaka', postalCode: '1207', countryCode: 'BD' } } };
     };
@@ -197,7 +198,7 @@ test('RabbitMQ saga, durable outboxes, redelivery and compensation', async t => 
       try {
         const pending = await eventually(() => broker.status(first.body.order.id), s => s.saga.status === 'COMPENSATING' && s.saga.brokerAttempts === 3 && !s.saga.pendingMessageId);
         assert.deepEqual(pending.saga.compensatedSteps, []); assert.equal(await stock(req), 8);
-        assert.equal((await row('PAYMENT', 'payments', first.body.order.id)).status, 'CHARGED');
+        assert.equal((await row('PAYMENT', 'payments', first.body.order.id)).status, 'PAY_ON_DELIVERY');
         const dead = await eventually(() => channel.get(`${prefix}.orders.dead`, { noAck: false }), m => !!m); channel.ack(dead);
       } finally { intercept = undefined; shippingMode = 'success'; }
       const resumed = await app.request(`/orders/${first.body.order.id}/resume`, { method: 'POST' }); assert.equal(resumed.status, 202);

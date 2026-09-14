@@ -14,7 +14,19 @@ export class BrokerOrderService extends OrderService {
   constructor(private readonly brokerPool: pg.Pool, private readonly retryDelayMs = 1000, private readonly commandTimeoutMs = 30000) {
     super(brokerPool, { execute: async () => { throw new Error('HTTP transport is disabled for broker orders'); } });
   }
-  protected override async onAccepted(db: NodePgDatabase, saga: Saga) { await this.dispatch(db, saga); }
+  protected override async onAccepted(db: NodePgDatabase, saga: Saga) {
+    if (saga.status === 'IN_PROGRESS') await this.dispatch(db, saga);
+  }
+
+  override async confirmPayment(orderId: string): Promise<void> {
+    await drizzle(this.brokerPool).transaction(async tx => {
+      const [saga] = await tx.select().from(sagaInstances).where(eq(sagaInstances.orderId, orderId)).for('update');
+      if (!saga) throw new Error('Order not found');
+      if (saga.status !== 'PENDING_PAYMENT' || saga.payload.paymentMethod !== 'BANK_TRANSFER') return;
+      const confirmed = await this.save(tx, saga, { status: 'IN_PROGRESS', nextAttemptAt: new Date() }, 'PAYMENT_CONFIRMED');
+      await this.dispatch(tx, confirmed);
+    });
+  }
 
   override async run(orderId: string): Promise<void> {
     // POST/resume can restart a bounded retry cycle. It never sends a second

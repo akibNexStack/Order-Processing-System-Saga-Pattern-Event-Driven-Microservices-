@@ -1,0 +1,2 @@
+CREATE TABLE users (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), email varchar(320) NOT NULL UNIQUE, password_hash text NOT NULL, role varchar(20) NOT NULL DEFAULT 'CUSTOMER', created_at timestamptz NOT NULL DEFAULT now(), CHECK (role IN ('CUSTOMER','ADMIN')));--> statement-breakpoint
+CREATE TABLE sessions (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), token_hash varchar(64) NOT NULL UNIQUE, user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires_at timestamptz NOT NULL, created_at timestamptz NOT NULL DEFAULT now());

@@ -24,6 +24,7 @@ const payloadKey = (payload: OrderPayload) =>
     payload.customerId.toLowerCase(),
     payload.amountMinor,
     payload.currency,
+    payload.paymentMethod,
     addressKey(payload.shippingAddress),
     itemsKey(payload.items),
   ]);

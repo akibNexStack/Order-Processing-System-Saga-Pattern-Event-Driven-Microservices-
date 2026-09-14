@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const IdSchema = z.uuid();
 export const IdempotencyKeySchema = z.string().min(1).max(255).regex(/^[A-Za-z0-9:_-]+$/);
 export const CurrencySchema = z.enum(['USD', 'BDT']);
+export const PaymentMethodSchema = z.enum(['COD', 'BANK_TRANSFER']);
 // Both supported currencies have two decimal places. Fits DECIMAL(10,2).
 export const AmountMinorSchema = z.number().int().min(1).max(9_999_999_999);
 const text = z.string().trim().min(1).max(200);
@@ -27,13 +28,14 @@ export const OrderPayloadSchema = z.strictObject({
   items: ItemsSchema,
   amountMinor: AmountMinorSchema,
   currency: CurrencySchema,
+  paymentMethod: PaymentMethodSchema.optional(),
   shippingAddress: AddressSchema,
 });
 export const CreateOrderRequestSchema = z.strictObject({
   idempotencyKey: IdempotencyKeySchema,
   payload: OrderPayloadSchema,
 });
-export const SagaStatusSchema = z.enum(['IN_PROGRESS', 'COMPENSATING', 'COMPLETED', 'FAILED']);
+export const SagaStatusSchema = z.enum(['PENDING_PAYMENT', 'IN_PROGRESS', 'COMPENSATING', 'COMPLETED', 'FAILED']);
 export const SagaStepSchema = z.enum(['PAYMENT', 'INVENTORY', 'SHIPPING']);
 export const FORWARD_STEPS = ['PAYMENT', 'INVENTORY', 'SHIPPING'] as const;
 export const OperationSchema = z.enum([
@@ -52,7 +54,7 @@ const metadata = {
 };
 export const ChargePaymentCommandSchema = z.strictObject({
   ...metadata, operation: z.literal('CHARGE_PAYMENT'),
-  payload: z.strictObject({ customerId: IdSchema, amountMinor: AmountMinorSchema, currency: CurrencySchema }),
+  payload: z.strictObject({ customerId: IdSchema, amountMinor: AmountMinorSchema, currency: CurrencySchema, paymentMethod: PaymentMethodSchema.optional() }),
 });
 export const RefundPaymentCommandSchema = z.strictObject({
   ...metadata, operation: z.literal('REFUND_PAYMENT'), payload: z.strictObject({}),
@@ -105,6 +107,7 @@ export const ResultSchema = z.union([SuccessResultSchema, FailureResultSchema, U
 export type OrderPayload = z.infer<typeof OrderPayloadSchema>;
 export type CreateOrderRequest = z.infer<typeof CreateOrderRequestSchema>;
 export type ShippingAddress = z.infer<typeof AddressSchema>;
+export type PaymentMethod = z.infer<typeof PaymentMethodSchema>;
 export type OrderItems = z.infer<typeof ItemsSchema>;
 export type SagaStatus = z.infer<typeof SagaStatusSchema>;
 export type SagaStep = z.infer<typeof SagaStepSchema>;

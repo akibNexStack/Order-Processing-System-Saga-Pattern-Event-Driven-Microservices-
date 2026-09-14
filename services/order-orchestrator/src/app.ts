@@ -5,21 +5,42 @@ import { CreateOrderRequestSchema, IdSchema } from '@saga/shared';
 import { OrderConflict, type OrderService } from './orders/service.js';
 
 export function createApp(service: OrderService, ready?: Readiness) {
+
+  // Create a new Hono application instance
   const app = new Hono();
+
+  // Health check endpoints
   app.get('/ready', async c => {
     let checks;
     try { checks = await ready?.(); } catch {}
     const healthy = !!checks && Object.values(checks).every(Boolean);
     return c.json({ status: healthy ? 'ready' : 'not_ready', checks: checks ?? { configured: false } }, healthy ? 200 : 503);
   });
+
+  // Basic health check endpoint
   app.get('/health', c => c.json({ service: 'order-orchestrator', status: 'ok' }));
+
+
+  // Order-related endpoints
+
+  // Limit the request body size to 32 KiB for order-related endpoints
   app.use('/orders', bodyLimit({ maxSize: 32 * 1024, onError: c => c.json({ error: 'Request body exceeds 32 KiB' }, 413) }));
+
+  // Endpoint to create a new order
   app.post('/orders', async c => {
+
+    // Validate the Content-Type header to ensure it's application/json
     if (!/^application\/json(?:\s*;|$)/i.test(c.req.header('content-type') ?? '')) return c.json({ error: 'Content-Type must be application/json' }, 415);
+
+    // Attempt to parse the request body as JSON
     let body: unknown;
     try { body = await c.req.json(); } catch { return c.json({ error: 'Invalid JSON body' }, 400); }
+
+    // Validate the request body against the CreateOrderRequestSchema
     const parsed = CreateOrderRequestSchema.safeParse(body);
     if (!parsed.success) return c.json({ error: 'Invalid order', issues: parsed.error.issues.map(({ path, message }) => ({ path, message })) }, 400);
+
+    // Attempt to accept the order and handle the response accordingly
     const accepted = await service.accept(parsed.data);
     c.header('Location', `/orders/${accepted.orderId}`);
     await service.run(accepted.orderId);
@@ -30,7 +51,12 @@ export function createApp(service: OrderService, ready?: Readiness) {
     c.header('Retry-After', '1');
     return c.json(state, 202);
   });
+
+
+  // Endpoint to retrieve orders that require attention
   app.get('/orders/attention', async c => c.json({ orders: await service.attention(), limit: 100 }));
+
+  // Endpoint to retrieve the history of a specific order
   app.get('/orders/:orderId/history', async c => {
     const id = IdSchema.safeParse(c.req.param('orderId'));
     if (!id.success) return c.json({ error: 'Invalid order ID' }, 400);
@@ -45,12 +71,16 @@ export function createApp(service: OrderService, ready?: Readiness) {
           summary: `${t.direction === 'COMPENSATION' ? 'Compensation' : 'Saga'}: ${(details.event ?? 'transition').toLowerCase().replaceAll('_', ' ')} (${t.step.toLowerCase()})` };
       }) });
   });
+
+  // Endpoint to retrieve the status of a specific order
   app.get('/orders/:orderId', async c => {
     const id = IdSchema.safeParse(c.req.param('orderId'));
     if (!id.success) return c.json({ error: 'Invalid order ID' }, 400);
     const state = await service.status(id.data.toLowerCase());
     return state ? c.json(state) : c.json({ error: 'Order not found' }, 404);
   });
+
+  // Endpoint to confirm payment for a specific order
   app.post('/orders/:orderId/confirm-payment', async c => {
     if (c.req.header('x-saga-role') !== 'ADMIN') return c.json({ error: 'Administrator access is required' }, 403);
     const id = IdSchema.safeParse(c.req.param('orderId'));
@@ -63,6 +93,8 @@ export function createApp(service: OrderService, ready?: Readiness) {
     c.header('Retry-After', '1');
     return c.json(state, 202);
   });
+
+  // Endpoint to resume processing of a specific order
   app.post('/orders/:orderId/resume', async c => {
     const id = IdSchema.safeParse(c.req.param('orderId'));
     if (!id.success) return c.json({ error: 'Invalid order ID' }, 400);
@@ -75,10 +107,14 @@ export function createApp(service: OrderService, ready?: Readiness) {
     c.header('Retry-After', '1');
     return c.json(state, 202);
   });
+
+  // Global error handler for the application
   app.onError((error, c) => {
     if (error instanceof OrderConflict) return c.json({ error: error.message }, 409);
     c.header('Retry-After', '1');
     return c.json({ error: 'Order service unavailable; retry with the original idempotency key' }, 503);
   });
+
+  
   return app;
 }

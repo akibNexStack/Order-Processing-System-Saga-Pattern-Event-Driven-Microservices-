@@ -7,42 +7,44 @@ export const metadata: Metadata = { title: "Platform Features" };
 
 const sections = [
   { title: "Overview", href: "/", description: "Check service readiness, orders needing attention, and recent order IDs saved in this browser. Recent orders are not a complete server-side order list." },
-  { title: "Create Order", href: "/orders/new", description: "Submit a demo checkout with customer, items, amount, currency, and shipping address. The backend coordinates payment, inventory reservation, shipping, and inventory finalization. A submitted or pending order is not yet a completed order." },
+  { title: "Create Order", href: "/orders/new", description: "Browse product cards, choose quantities, add delivery details, and select Cash on Delivery or Bank Transfer. Prices shown in the browser are recalculated by the backend before the order is saved." },
   { title: "Orders", href: "/orders", description: "Find an order by its UUID. Open its details to inspect saga progress, payment, inventory and shipment states, and event history. Save the order ID to find it again from another browser." },
   { title: "Attention", href: "/attention", description: "Review up to 100 orders requiring intervention. Inspect the error and history, restore the failed dependency, then use Resume when offered. Resume continues recovery; it does not guarantee success or cancel an order." },
-  { title: "Services", href: "/services", description: "Inspect all four services. Health means the HTTP process responds; readiness also checks dependencies. Wait until every service is ready before submitting a demo order." },
+  { title: "Services", href: "/services", description: "Inspect the order, payment, inventory, and shipping services. Health means the HTTP process responds; readiness also checks dependencies. Wait until every service is ready before submitting an order." },
+  { title: "Account", href: "/account", description: "Register with email and password, sign in, inspect your role, and sign out. Administrators are identified through the configured ADMIN_EMAILS list and can approve bank-transfer orders." },
 ];
 
 export default function FeaturesPage() {
   return <>
     <PageHeading eyebrow="PLATFORM GUIDE" title="Platform Features"
-      description="What this demo does, how each section works, and how to follow an order from checkout to recovery."
+      description="How catalog pricing, authentication, internal payments, and the Saga workflow cooperate to process an order."
       action={<ButtonLink href="/services">Check services</ButtonLink>} />
     <Card className="order-panel" aria-label="What the platform does">
       <CardHeading title="One order, four cooperating services" />
-      <p>This platform demonstrates event-driven order processing using the Saga pattern. The order orchestrator coordinates independent payment, inventory, and shipping services through RabbitMQ. Each service persists its own state. The frontend displays backend responses rather than pretending a request has succeeded.</p>
+      <p>This platform processes orders through an event-driven Saga. The Order Orchestrator coordinates independent Payment, Inventory, and Shipping services through RabbitMQ, while each service owns its own PostgreSQL data. The frontend displays persisted backend state rather than treating a submitted request as completed.</p>
       <p>If a later step fails, the backend compensates earlier work where applicable, such as releasing reserved stock and refunding payment. Recovery, retries, and idempotency help handle interruptions and duplicate commands. Follow the final order state and history to confirm the outcome.</p>
-      <p><strong>Demo only:</strong> payment and shipping are simulated. No real money is charged and no physical shipment is booked. Use fictional customer information.</p>
+      <p><strong>Internal payment workflow:</strong> Cash on Delivery records PAY_ON_DELIVERY and starts fulfilment. Bank Transfer stays PENDING_PAYMENT until an administrator confirms it, then the Saga reserves inventory and creates shipment records. Payment and shipping remain simulated; no real money is charged and no carrier booking is made.</p>
     </Card>
     {sections.map(section => <Card key={section.href} className="order-panel" aria-label={`${section.title} guide`}>
       <CardHeading title={section.title} action={<ButtonLink variant="ghost" href={section.href}>Open {section.title}</ButtonLink>} />
       <p>{section.description}</p>
     </Card>)}
     <Card className="order-panel" aria-label="How to use the platform">
-      <CardHeading title="Your first demo order" />
+      <CardHeading title="Create and track your first order" />
       <ol className="list-decimal space-y-3 pl-6">
-        <li>Open Services and refresh the checks until all four services are ready. Free-hosted services may need time to wake up.</li>
-        <li>Open Create Order, use the demo products and fictional details, and submit once. Keep the same submission when retrying an uncertain result to avoid creating another order.</li>
+        <li>Create an account or sign in. Configure ADMIN_EMAILS before registration if the account should approve bank transfers.</li>
+        <li>Open Services and refresh the checks until order dependencies are ready.</li>
+        <li>Open Create Order, select products from the cards, enter delivery information, select a payment method, and submit once. Keep the same submission when retrying an uncertain result.</li>
         <li>Open the resulting order and save its ID. Watch progress and inspect payment, reservation, shipment, and history until the order reaches COMPLETED or fully compensated FAILED.</li>
-        <li>To demonstrate insufficient stock, submit a separate order for the demo monitor, which starts with zero stock. Inspect its failure and payment compensation.</li>
+        <li>For Bank Transfer, an administrator opens the pending order and confirms payment before fulfilment begins.</li>
         <li>If processing needs intervention, inspect Attention and the order history. Restore the dependency before resuming. Do not treat a resume acceptance as proof of completion.</li>
       </ol>
     </Card>
     <Card className="order-panel" aria-label="Capabilities and limits">
-      <CardHeading title="API tools and demo limits" />
-      <p>The Postman collection exposes direct charge/refund, reserve/release/finalize, and create/cancel shipment commands for controlled API testing. These are not independent manual action buttons in this user interface: normal checkout and compensation are coordinated by the backend. Do not issue competing commands against an active checkout.</p>
-      <p>The platform does not provide a full product catalog, restocking screen, user-account management, or arbitrary order cancellation. Completed checkouts consume demo stock; restarting does not replenish it. Provider rejection and timeout scenarios require server configuration changes, not a frontend switch.</p>
-      <p>A sleeping or unavailable dependency can delay processing. Check Services and refresh after it recovers. This demo is not an always-on production store. The server-to-server API token is not visitor authentication; private deployment also needs protection for the frontend and its API routes.</p>
+      <CardHeading title="Capabilities and current limits" />
+      <p>Product cards use the shared server-owned catalog. The backend recalculates totals, while Inventory Service remains responsible for the live stock check during reservation. The Postman collection still exposes direct participant commands for controlled testing; do not issue competing commands against an active order.</p>
+      <p>Email/password accounts use a dedicated Auth Service and auth database. Session cookies are HTTP-only. Google sign-in, password reset, email verification, user profile editing, and a full restocking/product-management console are not implemented yet.</p>
+      <p>Run the complete local stack with Docker Compose to include Auth Service and auth-db. A sleeping dependency can delay processing; use Services and order history to investigate, then resume eligible work. Production deployment must configure auth database backups, HTTPS, ADMIN_EMAILS, and secrets.</p>
     </Card>
   </>;
 }

@@ -1100,6 +1100,11 @@ h2 {
 .readiness-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
 .readiness-summary { display: grid; justify-items: start; gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; }
 #order-history { scroll-margin-top: 90px; }
+.product-card-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:16px; margin-top:16px; }
+.product-card { border:1px solid var(--line); border-radius:14px; padding:16px; background:var(--surface); display:grid; gap:12px; }
+.product-card--selected { border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent); }
+.product-card__visual { width:42px; height:42px; display:grid; place-items:center; border-radius:10px; background:var(--accent-soft); color:var(--accent); font-weight:800; font-size:20px; }
+.product-card .demo-product-choice { display:flex; gap:10px; align-items:flex-start; cursor:pointer; }.product-card .demo-product-choice span{display:grid;gap:3px}.product-card .demo-product-choice strong{color:var(--accent)}
 .saga-history pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;

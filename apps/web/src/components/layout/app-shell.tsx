@@ -157,7 +157,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
           <span className="environment-label">
             <span aria-hidden="true" />
-            Demo workspace
+            Order operations
           </span>
           <div className="topbar-auth">
             <Link href="/login">Sign in</Link>

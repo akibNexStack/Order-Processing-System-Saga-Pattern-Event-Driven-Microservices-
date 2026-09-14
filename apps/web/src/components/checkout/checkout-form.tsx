@@ -225,13 +225,14 @@ export function CheckoutForm() {
                     Select at least one product. {errors.items}
                   </p>
                 )}
-                {products.map((product) => {
+                <div className="product-card-grid">{products.map((product) => {
                   const index = draft.items.findIndex(
                     (item) => item.productId === product.id,
                   );
                   const item = draft.items[index];
                   return (
-                    <div className="demo-product" key={product.id}>
+                    <article className={`product-card ${item ? "product-card--selected" : ""}`} key={product.id}>
+                      <div className="product-card__visual" aria-hidden="true">{product.name.slice(0, 1)}</div>
                       <label className="demo-product-choice">
                         <input
                           type="checkbox"
@@ -255,9 +256,8 @@ export function CheckoutForm() {
                         />
                         <span>
                           {product.name}
-                          <small>
-                            {product.sku} · {draft.currency} {formatMinor(product.priceMinor)}
-                          </small>
+                          <small>{product.sku}</small>
+                          <strong>{draft.currency} {formatMinor(product.priceMinor)}</strong>
                         </span>
                       </label>
                       {item && (
@@ -291,9 +291,9 @@ export function CheckoutForm() {
                           hint="Whole number from 1 to 10,000."
                         />
                       )}
-                    </div>
+                    </article>
                   );
-                })}
+                })}</div>
               </fieldset>
             </fieldset>
             <fieldset disabled={locked} className="checkout-fields">

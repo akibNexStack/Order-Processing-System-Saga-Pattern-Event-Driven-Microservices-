@@ -1,10 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { inventorySeed } from "../../../../services/inventory-service/src/db/seed";
 import { CreateOrderRequestSchema } from "@saga/shared/contracts";
 import {
   buildCreateOrderRequest,
-  demoProducts,
+  products,
   formatMinor,
   parseAmountMinor,
   validateCheckoutDraft,
@@ -16,8 +15,8 @@ import {
 
 const validDraft = (): CheckoutDraft => ({
   customerId: "11111111-1111-4111-8111-111111111111",
-  items: [{ productId: demoProducts[0].id, quantity: 2 }],
-  amountMinor: 29,
+  items: [{ productId: products[0].id, quantity: 2 }],
+  amountMinor: 500000,
   currency: "BDT",
   shippingAddress: {
     recipient: " Demo User ",
@@ -30,14 +29,9 @@ const validDraft = (): CheckoutDraft => ({
   },
 });
 
-test("demo catalog matches the actual inventory seed without claiming live stock", () => {
-  assert.deepEqual(
-    demoProducts.map(({ initialStock, ...product }) => ({
-      ...product,
-      availableStock: initialStock,
-    })),
-    inventorySeed,
-  );
+test("catalog exposes server-owned product identifiers and prices", () => {
+  assert.equal(products.length, 3);
+  assert.ok(products.every((product) => product.priceMinor > 0 && product.sku.length > 0));
 });
 test("money conversion is exact for cents and boundary values", () => {
   for (const [input, expected] of [
@@ -106,7 +100,7 @@ test("shared validation reports field-level errors and rejects invalid quantitie
 test("amount input is memory-only, stays synchronized, and obeys checkout locks/reset", () => {
   const store = createCheckoutStore(() => "real-test-key");
   store.getState().updateDraft(validDraft());
-  assert.equal(store.getState().amountInput, "0.29");
+  assert.equal(store.getState().amountInput, "5000.00");
   store.getState().setAmountInput("1.001");
   assert.equal(store.getState().amountInput, "1.001");
   assert.equal(store.getState().draft.amountMinor, null);

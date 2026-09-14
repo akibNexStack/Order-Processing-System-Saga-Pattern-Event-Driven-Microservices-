@@ -250,18 +250,18 @@ Run commands from the repository root (Node.js, npm, Docker, and Docker Compose 
 npm ci
 
 # Create missing local environment files without overwriting existing configuration
-for service in payment-service inventory-service shipping-service order-orchestrator; do
+for service in auth-service payment-service inventory-service shipping-service order-orchestrator; do
   test -f "services/$service/.env" || cp "services/$service/.env.example" "services/$service/.env"
 done
 
-# Start four PostgreSQL instances and RabbitMQ
+# Start five PostgreSQL instances and RabbitMQ
 npm run infra:up
 
 # Apply migrations and insert demo inventory
 npm run migrate
 npm run db:seed
 
-# Start all four service development servers
+# Start Auth plus the four order-processing service development servers
 npm run dev
 ```
 
@@ -271,7 +271,7 @@ The Next.js frontend is in `apps/web` and runs on **3004**:
 # Frontend only (the layout preview does not require backend infrastructure)
 npm run dev:web
 
-# Alternatively, start the frontend and all four backend services together
+# Alternatively, start the frontend and all backend services together
 npm run dev:all
 ```
 
@@ -283,15 +283,15 @@ Run `npm run test:web` for the frontend component and browser suite
 after installing Chromium as described in the frontend guide.
 
 The orchestrator listens on port **3000**, payment on **3001**, inventory on **3002**,
-and shipping on **3003**. Each exposes `GET /health` for liveness and `GET /ready` for
+shipping on **3003**, and Auth Service on **3005**. Each exposes `GET /health` for liveness and `GET /ready` for
 dependency readiness. The saga now runs over RabbitMQ with automatic recovery.
 See [Order checkout, resume, and troubleshooting](docs/PART_10_VALIDATION.md),
 [Payment examples](docs/PART_3_PAYMENT.md),
 [Inventory examples](docs/PART_4_INVENTORY.md), and [Shipping examples](docs/PART_5_SHIPPING.md).
 
 RabbitMQ management is available at `http://localhost:15672` with local development
-credentials `saga` / `saga`. PostgreSQL ports are **5433–5436**, mapped to payment,
-inventory, shipping, and orchestrator respectively. Connection URLs are provided
+credentials `saga` / `saga`. PostgreSQL ports are **5433–5437**, mapped to payment,
+inventory, shipping, orchestrator, and authentication respectively. Connection URLs are provided
 in each service's `.env.example`.
 
 ```bash

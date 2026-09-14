@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useUiStore } from "@/components/providers/state-provider";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -74,6 +74,29 @@ function SidebarNote() {
       </div>
     </div>
   );
+}
+
+type SessionUser = { id: string; email: string; role: "ADMIN" | "CUSTOMER" };
+
+function AccountNavigation() {
+  const [user, setUser] = useState<SessionUser | null | undefined>(undefined);
+
+  useEffect(() => {
+    const loadSession = () => fetch("/api/auth/session")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((value) => setUser(value?.user ?? null))
+      .catch(() => setUser(null));
+    void loadSession();
+    window.addEventListener("saga-auth-change", loadSession);
+    return () => window.removeEventListener("saga-auth-change", loadSession);
+  }, []);
+
+  if (user === undefined) return <span className="account-nav-loading">Checking account…</span>;
+  if (!user) return <div className="topbar-auth"><Link href="/login">Sign in</Link><Link className="topbar-register" href="/register">Create account</Link></div>;
+  return <Link href="/account" className="account-nav" aria-label={`Open account for ${user.email}`}>
+    <span className="account-nav-initial">{user.email.slice(0, 1).toUpperCase()}</span>
+    <span className="account-nav-copy"><strong>{user.email}</strong><small>{user.role === "ADMIN" ? "Administrator" : "Customer"}</small></span>
+  </Link>;
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -159,11 +182,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span aria-hidden="true" />
             Order operations
           </span>
-          <div className="topbar-auth">
-            <Link href="/login">Sign in</Link>
-            <Link href="/register">Register</Link>
-            <Link href="/account">Account</Link>
-          </div>
+          <AccountNavigation />
         </header>
         <main id="main-content" tabIndex={-1} className="main-content">
           {children}
@@ -174,7 +193,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             {pathname === "/services"
               ? "Live service checks · Read-only"
               : pathname === "/orders/new"
-                ? "Demo checkout · Live submission"
+                ? "Order checkout · Live submission"
                 : pathname === "/orders"
                   ? "Order lookup · Read-only snapshots"
                   : pathname.startsWith("/orders/")

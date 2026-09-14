@@ -107,12 +107,23 @@ export function CheckoutForm() {
   const formRef = useRef<HTMLFormElement>(null);
   const [attempted, setAttempted] = useState(false);
   const [validated, setValidated] = useState(false);
+  const [account, setAccount] = useState<{ id: string; email: string } | null | undefined>(undefined);
   const validation = validateCheckoutDraft(draft);
   const errors = attempted ? validation.errors : {};
   const locked = phase !== "idle";
   const edit = (patch: Parameters<typeof updateDraft>[0]) => {
     if (updateDraft(patch)) setValidated(false);
   };
+  useEffect(() => {
+    fetch("/api/auth/session")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((value) => {
+        const user = value?.user ?? null;
+        setAccount(user);
+        if (user?.id) updateDraft({ customerId: user.id });
+      })
+      .catch(() => setAccount(null));
+  }, [updateDraft]);
   function validate(event: FormEvent) {
     event.preventDefault();
     if (locked) return;
@@ -200,25 +211,15 @@ export function CheckoutForm() {
               </p>
             )}
             <fieldset disabled={locked} className="checkout-fields">
-              <legend>Customer and products</legend>
-              <Input
-                id="customer-id"
-                label="Customer ID"
-                required
-                value={draft.customerId}
-                onChange={(event) => edit({ customerId: event.target.value })}
-                error={errors.customerId}
-                placeholder="Customer UUID"
-                autoComplete="off"
-              />
+              <legend>Products</legend>
+              {account === undefined ? <p className="account-checkout-notice">Checking your signed-in account…</p> : account ? <div className="account-checkout-notice"><span className="account-nav-initial">{account.email.slice(0, 1).toUpperCase()}</span><span><strong>Ordering as {account.email}</strong><small>Your account is attached to this order automatically.</small></span></div> : <div className="account-checkout-notice account-checkout-notice--warning"><span><strong>Sign in to create an order</strong><small>Orders are linked to the account that creates them.</small></span><ButtonLink href="/login" variant="secondary">Sign in</ButtonLink></div>}
               <fieldset
-                className="demo-products"
-                aria-describedby="demo-products-note"
+                className="product-catalog"
+                aria-describedby="product-catalog-note"
               >
-                <legend>Products</legend>
-                <p id="demo-products-note">
-                  Product prices are shown for convenience. The server verifies
-                  the total before it saves the order.
+                <legend>Catalog</legend>
+                <p id="product-catalog-note">
+                  Prices are verified by the server before the order is saved. Availability is confirmed when you submit.
                 </p>
                 {errors.items && (
                   <p id="items-error" className="field-error">
@@ -232,8 +233,9 @@ export function CheckoutForm() {
                   const item = draft.items[index];
                   return (
                     <article className={`product-card ${item ? "product-card--selected" : ""}`} key={product.id}>
-                      <div className="product-card__visual" aria-hidden="true">{product.name.slice(0, 1)}</div>
-                      <label className="demo-product-choice">
+                      <div className={`product-card__visual product-card__visual--${product.sku.toLowerCase()}`} aria-hidden="true"><span>{product.name.slice(0, 1)}</span></div>
+                      <span className="product-card__availability">Availability checked at submission</span>
+                      <label className="product-card__choice">
                         <input
                           type="checkbox"
                           checked={!!item}
@@ -383,7 +385,7 @@ export function CheckoutForm() {
               </div>
             </fieldset>
             <div className="checkout-actions">
-              <Button type="submit" disabled={locked}>
+              <Button type="submit" disabled={locked || !account}>
                 Validate order
               </Button>
               <Button
@@ -399,7 +401,7 @@ export function CheckoutForm() {
                 {phase === "settled" ? "Start new checkout" : "Clear draft"}
               </Button>
               <Button
-                disabled={locked || hydration === "pending"}
+                disabled={locked || hydration === "pending" || !account}
                 onClick={() => void submit()}
                 aria-describedby="submission-notice"
               >
@@ -453,7 +455,7 @@ export function CheckoutForm() {
           )}
           <dl className="dependency-checks">
             <div>
-              <dt>Demo total</dt>
+              <dt>Order total</dt>
               <dd>
                 {draft.amountMinor === null
                   ? "Not valid yet"
@@ -480,10 +482,7 @@ export function CheckoutForm() {
               .filter((value) => value?.trim())
               .join(", ")}
           </p>
-          <p>
-            Product availability and payment acceptance are checked by the
-            backend only after submission—not by this validation.
-          </p>
+          <p>Product availability and payment acceptance are checked by the backend after submission. Prices are not trusted from the browser.</p>
         </Card>
       </div>
     </>

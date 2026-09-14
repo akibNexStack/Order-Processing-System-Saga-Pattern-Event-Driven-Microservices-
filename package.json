@@ -18,7 +18,7 @@
     "dev:all": "concurrently -k -n backend,web \"npm run dev\" \"npm run dev:web\"",
     "build:web": "npm run build --workspace @saga/web",
     "start:web": "npm run start --workspace @saga/web",
-    "dev": "concurrently -k -n payment,inventory,shipping,orders \"npm run dev -w payment-service\" \"npm run dev -w inventory-service\" \"npm run dev -w shipping-service\" \"npm run dev -w order-orchestrator\"",
+    "dev": "concurrently -k -n auth,payment,inventory,shipping,orders \"npm run dev -w auth-service\" \"npm run dev -w payment-service\" \"npm run dev -w inventory-service\" \"npm run dev -w shipping-service\" \"npm run dev -w order-orchestrator\"",
     "build": "npm run build --workspaces",
     "typecheck": "npm run build --workspace @saga/shared && npm run typecheck --workspaces",
     "infra:up": "docker compose up -d",

@@ -6,11 +6,6 @@ import {
 import { calculateOrderTotal, catalog } from "@saga/shared";
 
 export const products = catalog;
-export const demoProducts = [
-  { id: "44444444-4444-4444-8444-444444444444", sku: "DEMO-KEYBOARD", name: "Demo Keyboard", initialStock: 100 },
-  { id: "55555555-5555-4555-8555-555555555555", sku: "DEMO-MOUSE", name: "Demo Mouse", initialStock: 50 },
-  { id: "66666666-6666-4666-8666-666666666666", sku: "DEMO-MONITOR", name: "Demo Monitor", initialStock: 0 },
-] as const;
 export function calculateCheckoutTotal(items: OrderPayload["items"]): number | null {
   try { return calculateOrderTotal(items); } catch { return null; }
 }

@@ -21,13 +21,17 @@ import { useOrderPolling } from "@/lib/orders/polling";
 import { SagaProgress } from "./saga-progress";
 import { ResumeOrder } from "./resume-order";
 import { OrderHistory } from "./order-history";
-import { demoProducts, formatMinor } from "@/lib/checkout/form";
+import { products, formatMinor } from "@/lib/checkout/form";
 import { useUiStore } from "../providers/state-provider";
 import { SubmissionResult } from "../checkout/submission-result";
 import { PageHeading } from "../layout/page-heading";
 import { Card } from "../ui/card";
 import { Button, ButtonLink } from "../ui/button";
 import { StatusBadge } from "../ui/status-badge";
+
+function productName(productId: string) {
+  return products.find((product) => sameId(product.id, productId))?.name ?? "Unknown product";
+}
 
 function Fields({ values }: { values: Record<string, ReactNode> }) {
   return (
@@ -207,7 +211,7 @@ function Participants({
             <ul className="order-items">
               {data.items.map((item) => (
                 <li key={item.productId}>
-                  {item.productId} × {item.quantity}
+                  {productName(item.productId)} × {item.quantity}
                 </li>
               ))}
             </ul>
@@ -370,9 +374,7 @@ export function OrderDetails({ orderId }: { orderId: string }) {
                   {data.items.map((item) => (
                     <li key={item.productId}>
                       <strong>
-                        {demoProducts.find((product) =>
-                          sameId(product.id, item.productId),
-                        )?.name ?? "Product"}
+                        {productName(item.productId)}
                       </strong>
                       <br />
                       {item.productId} × {item.quantity}
@@ -380,8 +382,7 @@ export function OrderDetails({ orderId }: { orderId: string }) {
                   ))}
                 </ul>
                 <p>
-                  Demo names identify seeded products; no catalog price is
-                  implied.
+                  Product names come from the server-validated catalog.
                 </p>
               </div>
               <div>
@@ -422,14 +423,10 @@ export function OrderDetails({ orderId }: { orderId: string }) {
       </Card>
       {verified && data && !query.error && (
         <>
-        <ResumeOrder key={orderId} state={data} checking={query.isFetching} />
-        <SagaProgress state={data} />
-        <OrderHistory key={orderId} orderId={orderId} version={data.saga.version} />
-        <Participants
-          key={data.saga.id}
-          orderId={orderId}
-          sagaId={data.saga.id}
-        />
+          <ResumeOrder state={data} checking={query.isFetching} />
+          <SagaProgress state={data} />
+          <OrderHistory orderId={orderId} version={data.saga.version} />
+          <Participants orderId={orderId} sagaId={data.saga.id} />
         </>
       )}
     </>

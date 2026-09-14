@@ -4,6 +4,7 @@ import {
   createCheckoutStore,
   type CheckoutDraft,
 } from "../../src/stores/checkout-store";
+import { products } from "../../src/lib/checkout/form";
 import {
   createUiStore,
   connectUiPersistence,
@@ -13,8 +14,8 @@ import {
 const id = (n = 1) => `aaaaaaaa-aaaa-4aaa-8aaa-${String(n).padStart(12, "0")}`;
 const draft = (): CheckoutDraft => ({
   customerId: id(),
-  items: [{ productId: id(2), quantity: 1 }],
-  amountMinor: 100,
+  items: [{ productId: products[0].id, quantity: 1 }],
+  amountMinor: products[0].priceMinor,
   currency: "BDT",
   shippingAddress: {
     recipient: "Private recipient",

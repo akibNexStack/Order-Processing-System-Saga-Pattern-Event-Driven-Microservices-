@@ -1,4 +1,5 @@
-"use client";
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-export default function RegisterPage() { const [error,setError]=useState(''); const router=useRouter(); return <main className="content"><h1>Create account</h1><form onSubmit={async e=>{e.preventDefault(); const data=new FormData(e.currentTarget); const r=await fetch('/api/auth/register',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:data.get('email'),password:data.get('password')})}); if(r.ok) router.push('/'); else setError((await r.json()).error);}}><label>Email<input name="email" type="email" required /></label><label>Password<input name="password" type="password" minLength={12} required /></label><p>Use at least 12 characters.</p>{error&&<p role="alert">{error}</p>}<button type="submit">Create account</button></form><a href="/login">Already have an account?</a></main>; }
+import { AuthCard } from "@/components/auth/auth-card";
+
+export default function RegisterPage() {
+  return <AuthCard mode="register" />;
+}

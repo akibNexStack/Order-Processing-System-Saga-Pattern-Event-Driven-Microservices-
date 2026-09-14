@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import pg from 'pg';
 import { fileURLToPath } from 'node:url';
 import { drizzle } from 'drizzle-orm/node-postgres';

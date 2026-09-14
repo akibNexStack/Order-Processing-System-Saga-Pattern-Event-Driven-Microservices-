@@ -8,6 +8,7 @@ import * as inventorySchema from '../services/inventory-service/dist/db/schema.j
 for (const [service, key] of [
   ['payment-service', 'PAYMENT'], ['inventory-service', 'INVENTORY'],
   ['shipping-service', 'SHIPPING'], ['order-orchestrator', 'ORDER'],
+  ['auth-service', 'AUTH'],
 ]) {
   const connectionString = process.env[`${key}_DATABASE_URL`];
   if (!connectionString) throw new Error(`Missing ${key}_DATABASE_URL`);

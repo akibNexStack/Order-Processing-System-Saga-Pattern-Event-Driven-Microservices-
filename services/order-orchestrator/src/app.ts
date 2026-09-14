@@ -52,6 +52,7 @@ export function createApp(service: OrderService, ready?: Readiness) {
     return state ? c.json(state) : c.json({ error: 'Order not found' }, 404);
   });
   app.post('/orders/:orderId/confirm-payment', async c => {
+    if (c.req.header('x-saga-role') !== 'ADMIN') return c.json({ error: 'Administrator access is required' }, 403);
     const id = IdSchema.safeParse(c.req.param('orderId'));
     if (!id.success) return c.json({ error: 'Invalid order ID' }, 400);
     const orderId = id.data.toLowerCase();

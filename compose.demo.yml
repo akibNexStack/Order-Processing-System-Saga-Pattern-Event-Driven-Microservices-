@@ -48,6 +48,9 @@ services:
   order-db:
     <<: *db
     volumes: ["order-data:/var/lib/postgresql/data"]
+  auth-db:
+    <<: *db
+    volumes: ["auth-data:/var/lib/postgresql/data"]
   rabbitmq:
     image: rabbitmq:4-management
     hostname: rabbitmq
@@ -73,11 +76,22 @@ services:
       INVENTORY_DATABASE_URL: postgresql://saga:saga@inventory-db:5432/saga
       SHIPPING_DATABASE_URL: postgresql://saga:saga@shipping-db:5432/saga
       ORDER_DATABASE_URL: postgresql://saga:saga@order-db:5432/saga
+      AUTH_DATABASE_URL: postgresql://saga:saga@auth-db:5432/saga
     depends_on:
       payment-db: { condition: service_healthy }
       inventory-db: { condition: service_healthy }
       shipping-db: { condition: service_healthy }
       order-db: { condition: service_healthy }
+      auth-db: { condition: service_healthy }
+  auth:
+    <<: *app
+    command: ["node", "services/auth-service/dist/index.js"]
+    environment:
+      PORT: 3005
+      DATABASE_URL: postgresql://saga:saga@auth-db:5432/saga
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
   payment:
     <<: *app
     command: ["node", "services/payment-service/dist/index.js"]
@@ -120,11 +134,13 @@ services:
       INVENTORY_SERVICE_URL: http://inventory:3002
       SHIPPING_SERVICE_URL: http://shipping:3003
       BACKEND_TIMEOUT_MS: 10000
+      AUTH_SERVICE_URL: http://auth:3005
     depends_on:
       orders: { condition: service_healthy }
       payment: { condition: service_healthy }
       inventory: { condition: service_healthy }
       shipping: { condition: service_healthy }
+      auth: { condition: service_started }
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3004').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 10s
@@ -137,4 +153,5 @@ volumes:
   inventory-data:
   shipping-data:
   order-data:
+  auth-data:
   rabbit-data:

@@ -72,12 +72,12 @@ export function resolveTarget(segments: string[]): Target | undefined {
   if (
     resource === "orders" &&
     (segments.length === 2 ||
-      (segments.length === 3 && ["history", "resume"].includes(action)))
+      (segments.length === 3 && ["history", "resume", "confirm-payment"].includes(action)))
   ) {
     return {
       service: "orders",
       path: `/orders/${encodeURIComponent(id)}${action ? `/${action}` : ""}`,
-      method: action === "resume" ? "POST" : "GET",
+      method: ["resume", "confirm-payment"].includes(action ?? "") ? "POST" : "GET",
     };
   }
   if (segments.length === 2 && ["payments", "shipments"].includes(resource)) {
@@ -185,6 +185,13 @@ export async function proxyRequest(
     controller.signal.throwIfAborted();
     const headers = new Headers({ Accept: "application/json" });
     if (config.apiToken) headers.set("Authorization", `Bearer ${config.apiToken}`);
+    if (target.path.endsWith('/confirm-payment')) {
+      const token = /(?:^|;\s*)saga_session=([^;]+)/.exec(request.headers.get('cookie') ?? '')?.[1];
+      const auth = await fetch(`${process.env.AUTH_SERVICE_URL ?? 'http://127.0.0.1:3005'}/auth/session`, { headers: token ? { 'x-session-token': token } : {}, cache: 'no-store' });
+      const identity = auth.ok ? await auth.json() : undefined;
+      if (identity?.user?.role !== 'ADMIN') return proxyError(403, 'ADMIN_REQUIRED', 'Administrator access is required');
+      headers.set('X-Saga-Role', 'ADMIN');
+    }
     const contentType = request.headers.get("content-type");
     if (contentType) headers.set("Content-Type", contentType);
     const url = new URL(target.path, config.origins[target.service]);

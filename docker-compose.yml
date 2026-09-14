@@ -60,6 +60,12 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+  auth-db:
+    image: postgres:17
+    environment: { POSTGRES_USER: saga, POSTGRES_PASSWORD: saga, POSTGRES_DB: saga }
+    ports: ["127.0.0.1:5437:5432"]
+    volumes: ["auth-db-data:/var/lib/postgresql/data"]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U saga -d saga"], interval: 5s, timeout: 5s, retries: 10 }
   rabbitmq:
     image: rabbitmq:4-management
     environment:
@@ -81,4 +87,5 @@ volumes:
   inventory-db-data:
   shipping-db-data:
   order-db-data:
+  auth-db-data:
   rabbitmq-data:

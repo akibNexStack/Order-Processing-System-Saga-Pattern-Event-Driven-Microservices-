@@ -25,6 +25,7 @@ export function orderReply(
     order: {
       id: orderId,
       ...request.payload,
+      paymentMethod: request.payload.paymentMethod ?? "COD",
       idempotencyKey: request.idempotencyKey,
       createdAt: time,
     },

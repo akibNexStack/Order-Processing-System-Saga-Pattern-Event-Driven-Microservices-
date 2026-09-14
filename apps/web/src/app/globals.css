@@ -209,6 +209,12 @@ svg {
   font-size: 11px;
   white-space: nowrap;
 }
+
+.topbar-auth { display: flex; gap: 0.75rem; align-items: center; }
+.topbar-auth a { color: inherit; font-weight: 600; text-decoration: none; }
+.topbar-auth a:hover { text-decoration: underline; }
+.auth-layout { display:grid; grid-template-columns:minmax(0,480px) minmax(260px,1fr); gap:2rem; max-width:900px; margin:2rem auto; }
+.auth-card { padding:2rem; }.auth-form { display:grid; gap:1rem; }.auth-form h2 { margin:0; }.auth-form .button { width:100%; justify-content:center; }.auth-switch { margin:0; text-align:center; }.auth-switch .button { width:auto; padding:0; min-height:auto; }.auth-aside { padding:2rem; border-radius:16px; background:linear-gradient(145deg,#0f6b58,#124237); color:white; }.auth-aside h2 { margin-top:.5rem; font-size:2rem; }.auth-aside .eyebrow { color:#b9eadc; }@media(max-width:720px){.auth-layout{grid-template-columns:1fr;margin:1rem 0}.auth-aside{display:none}.auth-card{padding:1.25rem}}
 .environment-label > span {
   width: 7px;
   height: 7px;

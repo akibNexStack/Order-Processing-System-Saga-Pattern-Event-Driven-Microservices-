@@ -22,9 +22,11 @@ export const navigation: {
     group: "Operations",
   },
   { href: "/services", label: "Services", icon: "server", group: "Operations" },
+  { href: "/account", label: "Account", icon: "info", group: "Workspace" },
 ];
 
 export function currentNavigation(pathname: string) {
+  if (["/login", "/register", "/account"].includes(pathname)) return { href: pathname, label: pathname === "/register" ? "Register" : pathname === "/login" ? "Sign in" : "Account", icon: "info" as IconName, group: "Workspace" };
   return (
     navigation.find((item) => item.href === pathname) ??
     (pathname.startsWith("/orders/")

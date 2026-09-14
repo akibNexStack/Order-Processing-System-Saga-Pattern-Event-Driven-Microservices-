@@ -159,6 +159,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span aria-hidden="true" />
             Demo workspace
           </span>
+          <div className="topbar-auth">
+            <Link href="/login">Sign in</Link>
+            <Link href="/register">Register</Link>
+            <Link href="/account">Account</Link>
+          </div>
         </header>
         <main id="main-content" tabIndex={-1} className="main-content">
           {children}

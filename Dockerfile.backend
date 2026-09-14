@@ -6,6 +6,7 @@ COPY services/payment-service/package.json services/payment-service/package.json
 COPY services/inventory-service/package.json services/inventory-service/package.json
 COPY services/shipping-service/package.json services/shipping-service/package.json
 COPY services/order-orchestrator/package.json services/order-orchestrator/package.json
+COPY services/auth-service/package.json services/auth-service/package.json
 COPY apps/web/package.json apps/web/package.json
 RUN npm ci
 COPY shared ./shared

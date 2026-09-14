@@ -25,6 +25,8 @@
     "infra:down": "docker compose down",
     "test": "npm run build && node --test --test-isolation=none --test-reporter=spec shared/test/*.test.mjs",
     "check": "npm run typecheck && npm test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "predev": "npm run build --workspace @saga/shared",
     "db:generate": "npm run db:generate --workspaces --if-present",
     "migrate": "npm run migrate --workspaces --if-present",
@@ -45,6 +47,7 @@
     "@types/pg": "^8.23.1",
     "concurrently": "^10.0.5",
     "drizzle-kit": "^0.31.10",
+    "prettier": "3.9.6",
     "tsx": "^4.23.13",
     "typescript": "^7.0.2"
   }

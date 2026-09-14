@@ -26,7 +26,7 @@ export const navigation: {
 ];
 
 export function currentNavigation(pathname: string) {
-  if (["/login", "/register", "/account"].includes(pathname)) return { href: pathname, label: pathname === "/register" ? "Register" : pathname === "/login" ? "Sign in" : "Account", icon: "info" as IconName, group: "Workspace" };
+  if (["/login", "/register", "/account", "/forgot-password", "/reset-password", "/verify-email"].includes(pathname)) return { href: pathname, label: pathname === "/register" ? "Register" : pathname === "/login" ? "Sign in" : pathname === "/account" ? "Account" : pathname === "/forgot-password" ? "Password recovery" : pathname === "/reset-password" ? "Set new password" : "Verify email", icon: "info" as IconName, group: "Workspace" };
   return (
     navigation.find((item) => item.href === pathname) ??
     (pathname.startsWith("/orders/")

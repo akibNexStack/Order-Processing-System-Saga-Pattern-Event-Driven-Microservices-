@@ -234,6 +234,8 @@ svg {
 .auth-switch { color:var(--muted); font-size:12px; text-align:center; }
 .auth-switch .button { min-height:0; padding:0; color:var(--accent); vertical-align:baseline; }
 .auth-error { border-left:3px solid #b63737; padding-left:10px; }
+.auth-success { color:#17613f; border-left:3px solid #237a51; padding-left:10px; font-size:12px; line-height:1.6; }
+.auth-recovery-link { justify-self:center; min-height:0; padding:0; color:var(--accent); font-size:12px; }
 .auth-aside { padding:34px; border-radius:12px; background:linear-gradient(145deg,#115f50,#163d36); color:white; display:flex; flex-direction:column; justify-content:center; }
 .auth-aside .eyebrow { color:#b8eadb; }
 .auth-aside h2 { font-size:26px; line-height:1.25; max-width:280px; }

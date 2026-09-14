@@ -1,4 +1,4 @@
-import type { CreateOrderRequest, OrderPayload } from "@saga/shared/contracts";
+import type { BrowserCreateOrderRequest, OrderPayload } from "@saga/shared/contracts";
 import { OrderStateSchema, type OrderState } from "../api/contracts";
 import type { ApiResponse, ApiError } from "../api/base-query";
 import type {
@@ -19,9 +19,8 @@ const itemsKey = (items: OrderPayload["items"]) =>
   items
     .map((item) => [item.productId.toLowerCase(), item.quantity] as const)
     .sort(([a], [b]) => a.localeCompare(b));
-const payloadKey = (payload: OrderPayload) =>
+const payloadKey = (payload: Omit<OrderPayload, "customerId">) =>
   JSON.stringify([
-    payload.customerId.toLowerCase(),
     payload.amountMinor,
     payload.currency,
     payload.paymentMethod,
@@ -32,7 +31,7 @@ const payloadKey = (payload: OrderPayload) =>
 // A schema-valid response is not enough: it must describe THIS checkout.
 export function matchesSubmission(
   state: OrderState,
-  request: CreateOrderRequest,
+  request: BrowserCreateOrderRequest,
 ) {
   return (
     state.order.id.toLowerCase() === state.saga.orderId.toLowerCase() &&
@@ -54,7 +53,9 @@ export function retryDeadline(value?: string | null, now = Date.now()) {
   return Number.isFinite(milliseconds) && milliseconds > now ? milliseconds : 0;
 }
 
-type Send = (request: CreateOrderRequest) => Promise<ApiResponse<OrderState>>;
+// Bivariance keeps existing test adapters that accept the richer internal
+// request shape compatible while the browser only sends the public shape.
+type Send = { send(request: BrowserCreateOrderRequest): Promise<ApiResponse<OrderState>> }["send"];
 // The store owns the lock and immutable snapshot; completion survives page unmount.
 export async function submitCheckout(
   store: CheckoutStore,

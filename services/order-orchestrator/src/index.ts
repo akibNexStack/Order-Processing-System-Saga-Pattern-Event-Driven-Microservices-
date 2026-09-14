@@ -32,7 +32,7 @@ recovery.start();
 
 
 // Start the HTTP server with the order orchestrator application, and set up signal handlers for graceful shutdown of the service.
-const server = serve({ fetch: protectService(createApp(service, () => readiness(pool, messaging, recovery)()).fetch), port }, info => {
+const server = serve({ fetch: protectService(createApp(service, () => readiness(pool, messaging, recovery)(), true).fetch), port }, info => {
   log({ event: 'http_started' });
 });
 

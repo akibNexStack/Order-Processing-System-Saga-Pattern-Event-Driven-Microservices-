@@ -4,7 +4,20 @@ import { bodyLimit } from 'hono/body-limit';
 import { CreateOrderRequestSchema, IdSchema } from '@saga/shared';
 import { OrderConflict, type OrderService } from './orders/service.js';
 
-export function createApp(service: OrderService, ready?: Readiness) {
+type Identity = { userId: string; role: 'CUSTOMER' | 'ADMIN' };
+
+function identity(c: { req: { header(name: string): string | undefined } }): Identity | null {
+  const userId = IdSchema.safeParse(c.req.header('x-saga-user-id'));
+  const role = c.req.header('x-saga-role');
+  if (!userId.success || (role !== 'CUSTOMER' && role !== 'ADMIN')) return null;
+  return { userId: userId.data.toLowerCase(), role };
+}
+
+function forbidden(c: { json: (body: unknown, status: 401 | 403) => Response }, authenticated: boolean) {
+  return c.json({ error: authenticated ? 'You do not have permission to access this order' : 'Authentication is required' }, authenticated ? 403 : 401);
+}
+
+export function createApp(service: OrderService, ready?: Readiness, requireIdentity = false) {
 
   // Create a new Hono application instance
   const app = new Hono();
@@ -29,6 +42,9 @@ export function createApp(service: OrderService, ready?: Readiness) {
   // Endpoint to create a new order
   app.post('/orders', async c => {
 
+    const actor = identity(c);
+    if (!actor && requireIdentity) return forbidden(c, false);
+
     // Validate the Content-Type header to ensure it's application/json
     if (!/^application\/json(?:\s*;|$)/i.test(c.req.header('content-type') ?? '')) return c.json({ error: 'Content-Type must be application/json' }, 415);
 
@@ -41,7 +57,9 @@ export function createApp(service: OrderService, ready?: Readiness) {
     if (!parsed.success) return c.json({ error: 'Invalid order', issues: parsed.error.issues.map(({ path, message }) => ({ path, message })) }, 400);
 
     // Attempt to accept the order and handle the response accordingly
-    const accepted = await service.accept(parsed.data);
+    // customerId from a browser is never trusted. The only owner is the
+    // authenticated identity that the server-side proxy supplied.
+    const accepted = await service.accept({ ...parsed.data, payload: { ...parsed.data.payload, customerId: actor?.userId ?? parsed.data.payload.customerId } });
     c.header('Location', `/orders/${accepted.orderId}`);
     await service.run(accepted.orderId);
     const state = await service.status(accepted.orderId);
@@ -54,14 +72,22 @@ export function createApp(service: OrderService, ready?: Readiness) {
 
 
   // Endpoint to retrieve orders that require attention
-  app.get('/orders/attention', async c => c.json({ orders: await service.attention(), limit: 100 }));
+  app.get('/orders/attention', async c => {
+    const actor = identity(c);
+    if (!actor && requireIdentity) return forbidden(c, false);
+    if (actor && actor.role !== 'ADMIN') return forbidden(c, true);
+    return c.json({ orders: await service.attention(), limit: 100 });
+  });
 
   // Endpoint to retrieve the history of a specific order
   app.get('/orders/:orderId/history', async c => {
+    const actor = identity(c);
+    if (!actor && requireIdentity) return forbidden(c, false);
     const id = IdSchema.safeParse(c.req.param('orderId'));
     if (!id.success) return c.json({ error: 'Invalid order ID' }, 400);
     const state = await service.status(id.data.toLowerCase());
     if (!state) return c.json({ error: 'Order not found' }, 404);
+    if (actor && actor.role !== 'ADMIN' && state.order.customerId !== actor.userId) return forbidden(c, true);
     return c.json({ orderId: state.order.id, status: state.saga.status, interventionReason: state.saga.interventionReason,
       history: state.transitions.map(t => {
         const details = t.details as { event?: string; operation?: string; messageId?: string; reason?: string };
@@ -74,15 +100,21 @@ export function createApp(service: OrderService, ready?: Readiness) {
 
   // Endpoint to retrieve the status of a specific order
   app.get('/orders/:orderId', async c => {
+    const actor = identity(c);
+    if (!actor && requireIdentity) return forbidden(c, false);
     const id = IdSchema.safeParse(c.req.param('orderId'));
     if (!id.success) return c.json({ error: 'Invalid order ID' }, 400);
     const state = await service.status(id.data.toLowerCase());
-    return state ? c.json(state) : c.json({ error: 'Order not found' }, 404);
+    if (!state) return c.json({ error: 'Order not found' }, 404);
+    if (actor && actor.role !== 'ADMIN' && state.order.customerId !== actor.userId) return forbidden(c, true);
+    return c.json(state);
   });
 
   // Endpoint to confirm payment for a specific order
   app.post('/orders/:orderId/confirm-payment', async c => {
-    if (c.req.header('x-saga-role') !== 'ADMIN') return c.json({ error: 'Administrator access is required' }, 403);
+    const actor = identity(c);
+    if (!actor && requireIdentity) return forbidden(c, false);
+    if (actor && actor.role !== 'ADMIN') return forbidden(c, true);
     const id = IdSchema.safeParse(c.req.param('orderId'));
     if (!id.success) return c.json({ error: 'Invalid order ID' }, 400);
     const orderId = id.data.toLowerCase();
@@ -96,6 +128,9 @@ export function createApp(service: OrderService, ready?: Readiness) {
 
   // Endpoint to resume processing of a specific order
   app.post('/orders/:orderId/resume', async c => {
+    const actor = identity(c);
+    if (!actor && requireIdentity) return forbidden(c, false);
+    if (actor && actor.role !== 'ADMIN') return forbidden(c, true);
     const id = IdSchema.safeParse(c.req.param('orderId'));
     if (!id.success) return c.json({ error: 'Invalid order ID' }, 400);
     const orderId = id.data.toLowerCase();

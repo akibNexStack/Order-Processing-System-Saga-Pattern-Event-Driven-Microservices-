@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CreateOrderRequestSchema } from "@saga/shared/contracts";
+import { BrowserCreateOrderRequestSchema } from "@saga/shared/contracts";
 import {
   buildCreateOrderRequest,
   products,
@@ -72,7 +72,8 @@ test("validation normalizes optional address fields and produces a shared-contra
   const result = buildCreateOrderRequest(draft, "test-key");
   assert.equal(result.success, true);
   if (!result.success) return;
-  assert.ok(CreateOrderRequestSchema.safeParse(result.data).success);
+  assert.ok(BrowserCreateOrderRequestSchema.safeParse(result.data).success);
+  assert.equal("customerId" in result.data.payload, false);
   assert.equal(result.data.payload.shippingAddress.recipient, "Demo User");
   assert.equal(result.data.payload.shippingAddress.countryCode, "BD");
   assert.equal(result.data.payload.shippingAddress.line2, undefined);
@@ -89,11 +90,9 @@ test("shared validation reports field-level errors and rejects invalid quantitie
   const draft = validDraft();
   draft.items.push({ ...draft.items[0] });
   assert.ok(validateCheckoutDraft(draft).errors.items);
-  draft.customerId = "bad";
   draft.shippingAddress.postalCode = " ";
   draft.shippingAddress.countryCode = "ZZZ";
   const { errors } = validateCheckoutDraft(draft);
-  assert.ok(errors.customerId);
   assert.ok(errors["shippingAddress.postalCode"]);
   assert.ok(errors["shippingAddress.countryCode"]);
 });

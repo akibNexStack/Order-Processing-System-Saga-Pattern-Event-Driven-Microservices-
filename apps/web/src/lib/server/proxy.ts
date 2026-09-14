@@ -1,5 +1,6 @@
 import type { BackendConfig } from "./config";
 import type { ServiceName } from "../api/contracts";
+import { BrowserCreateOrderRequestSchema } from "@saga/shared/contracts";
 
 type Target = { service: ServiceName; path: string; method: "GET" | "POST" };
 const staticTargets: Record<string, Target> = {
@@ -178,20 +179,62 @@ export async function proxyRequest(
     controller.abort();
   }, config.timeoutMs);
   try {
-    const body =
+    let body =
       request.method === "POST"
         ? await readLimitedBody(request, controller.signal)
         : undefined;
     controller.signal.throwIfAborted();
     const headers = new Headers({ Accept: "application/json" });
     if (config.apiToken) headers.set("Authorization", `Bearer ${config.apiToken}`);
-    if (target.path.endsWith('/confirm-payment')) {
-      const token = /(?:^|;\s*)saga_session=([^;]+)/.exec(request.headers.get('cookie') ?? '')?.[1];
-      const auth = await fetch(`${process.env.AUTH_SERVICE_URL ?? 'http://127.0.0.1:3005'}/auth/session`, { headers: token ? { 'x-session-token': token } : {}, cache: 'no-store' });
-      const identity = auth.ok ? await auth.json() : undefined;
-      if (identity?.user?.role !== 'ADMIN') return proxyError(403, 'ADMIN_REQUIRED', 'Administrator access is required');
-      headers.set('X-Saga-Role', 'ADMIN');
+    const requiresIdentity = !["/health", "/ready"].includes(target.path);
+    const token = /(?:^|;\s*)saga_session=([^;]+)/.exec(request.headers.get('cookie') ?? '')?.[1];
+    let session: { user?: { id?: string; role?: "CUSTOMER" | "ADMIN" } } | undefined;
+    if (requiresIdentity) try {
+      const auth = await fetcher(`${process.env.AUTH_SERVICE_URL ?? "http://127.0.0.1:3005"}/auth/session`, {
+        headers: token ? { "x-session-token": token } : {}, cache: "no-store", signal: controller.signal,
+      });
+      if (auth.status === 401) return proxyError(401, "AUTHENTICATION_REQUIRED", "Sign in to access order operations");
+      if (!auth.ok) return proxyError(503, "AUTH_SERVICE_UNAVAILABLE", "Authentication service is unavailable", { "Retry-After": "1" });
+      session = await auth.json();
+    } catch {
+      return proxyError(503, "AUTH_SERVICE_UNAVAILABLE", "Authentication service is unavailable", { "Retry-After": "1" });
     }
+    const userId = session?.user?.id;
+    const role = session?.user?.role;
+    if (requiresIdentity && (!userId || (role !== "CUSTOMER" && role !== "ADMIN")))
+      return proxyError(401, "AUTHENTICATION_REQUIRED", "Sign in to access order operations");
+    if (userId && role) {
+      headers.set("X-Saga-User-Id", userId);
+      headers.set("X-Saga-Role", role);
+    }
+
+    if (target.path === "/orders" && request.method === "POST") {
+      let browserRequest: unknown;
+      try { browserRequest = JSON.parse(new TextDecoder().decode(body)); }
+      catch { return proxyError(400, "INVALID_ORDER", "Invalid JSON order request"); }
+      const parsed = BrowserCreateOrderRequestSchema.safeParse(browserRequest);
+      if (!parsed.success) return proxyError(400, "INVALID_ORDER", "Invalid order request");
+      body = new TextEncoder().encode(JSON.stringify({
+        idempotencyKey: parsed.data.idempotencyKey,
+        payload: { ...parsed.data.payload, customerId: userId },
+      }));
+    }
+    const segmentsResource = segments[0];
+    const participantOrderId = (segmentsResource === "payments" || segmentsResource === "shipments")
+      ? segments[1]
+      : segmentsResource === "inventory" && segments[1] === "reservations" ? segments[2] : undefined;
+    if (participantOrderId) {
+      const access = await fetcher(new URL(`/orders/${encodeURIComponent(participantOrderId)}`, config.origins.orders), {
+        headers, cache: "no-store", signal: controller.signal,
+      });
+      if (!access.ok) {
+        await access.body?.cancel();
+        return proxyError(access.status === 404 ? 404 : access.status === 403 ? 403 : 401, "ORDER_ACCESS_DENIED", access.status === 404 ? "Order not found" : "You do not have permission to access this order");
+      }
+      await access.body?.cancel();
+    }
+    if (segments.join("/") !== "orders" && Object.hasOwn(staticTargets, segments.join("/")) && role !== "ADMIN")
+      return proxyError(403, "ADMIN_REQUIRED", "Administrator access is required");
     const contentType = request.headers.get("content-type");
     if (contentType) headers.set("Content-Type", contentType);
     const url = new URL(target.path, config.origins[target.service]);

@@ -2,7 +2,7 @@ import { createApi } from "@reduxjs/toolkit/query/react";
 import type { z } from "zod";
 import {
   ResultSchema,
-  type CreateOrderRequest,
+  type BrowserCreateOrderRequest,
   type CommandFor,
   type Result,
 } from "@saga/shared/contracts";
@@ -34,7 +34,7 @@ export const sagaApi = createApi({
   endpoints: (build) => ({
     createOrder: build.mutation<
       Reply<typeof c.OrderStateSchema>,
-      CreateOrderRequest
+      BrowserCreateOrderRequest
     >({
       query: (body) => ({
         url: "orders",

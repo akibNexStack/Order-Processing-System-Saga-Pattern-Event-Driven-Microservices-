@@ -6,11 +6,13 @@ import {
   calculateCheckoutTotal,
 } from "../lib/checkout/form";
 import {
-  type CreateOrderRequest,
+  type BrowserCreateOrderRequest,
   type OrderPayload,
 } from "@saga/shared/contracts";
 
-export type CheckoutDraft = Omit<OrderPayload, "amountMinor" | "paymentMethod"> & {
+export type CheckoutDraft = Omit<OrderPayload, "customerId" | "amountMinor" | "paymentMethod"> & {
+  /** Legacy test-only field; buildCreateOrderRequest always removes it. */
+  customerId?: string;
   amountMinor: number | null;
   paymentMethod?: OrderPayload["paymentMethod"];
 };
@@ -26,20 +28,19 @@ export interface CheckoutState {
   setAmountInput: (input: string) => boolean;
   idempotencyKey: string | null;
   submission: SubmissionPhase;
-  request: CreateOrderRequest | null;
+  request: BrowserCreateOrderRequest | null;
   error: string | null;
   receipt: SubmissionReceipt | null;
   retryAt: number;
   updateDraft: (patch: Partial<CheckoutDraft>) => boolean;
-  beginSubmission: () => CreateOrderRequest | null;
-  retrySubmission: () => CreateOrderRequest | null;
+  beginSubmission: () => BrowserCreateOrderRequest | null;
+  retrySubmission: () => BrowserCreateOrderRequest | null;
   markUncertain: (key: string, message: string, retryAt?: number) => boolean;
   markSettled: (key: string, receipt?: SubmissionReceipt) => boolean;
   resetCheckout: () => boolean;
 }
 
 const emptyDraft = (): CheckoutDraft => ({
-  customerId: "",
   items: [],
   amountMinor: null,
   currency: "BDT",
@@ -54,7 +55,7 @@ const emptyDraft = (): CheckoutDraft => ({
 });
 
 // Freeze the retry snapshot, including nested items/address. Callers receive copies.
-function freezeRequest(request: CreateOrderRequest): CreateOrderRequest {
+function freezeRequest(request: BrowserCreateOrderRequest): BrowserCreateOrderRequest {
   request.payload.items.forEach(Object.freeze);
   Object.freeze(request.payload.items);
   Object.freeze(request.payload.shippingAddress);

@@ -1,6 +1,6 @@
 import {
-  CreateOrderRequestSchema,
-  OrderPayloadSchema,
+  BrowserCreateOrderRequestSchema,
+  BrowserOrderPayloadSchema,
   type OrderPayload,
 } from "@saga/shared/contracts";
 import { calculateOrderTotal, catalog } from "@saga/shared";
@@ -21,21 +21,21 @@ export function parseAmountMinor(input: string): number | null {
 export function formatMinor(minor: number): string {
   return `${Math.floor(minor / 100)}.${String(minor % 100).padStart(2, "0")}`;
 }
-type Draft = Omit<OrderPayload, "amountMinor" | "paymentMethod"> & { amountMinor: number | null; paymentMethod?: OrderPayload["paymentMethod"] };
+type Draft = Omit<OrderPayload, "customerId" | "amountMinor" | "paymentMethod"> & { customerId?: string; amountMinor: number | null; paymentMethod?: OrderPayload["paymentMethod"] };
 function normalizeDraft(draft: Draft) {
+  const { customerId: _customerId, ...publicDraft } = draft;
   const address = { ...draft.shippingAddress };
   if (!address.line2?.trim()) delete address.line2;
   if (!address.region?.trim()) delete address.region;
   address.countryCode = address.countryCode.trim().toUpperCase();
   return {
-    ...draft,
+    ...publicDraft,
     paymentMethod: draft.paymentMethod ?? "COD",
-    customerId: draft.customerId.trim().toLowerCase(),
     shippingAddress: address,
   };
 }
 export function validateCheckoutDraft(draft: Draft) {
-  const parsed = OrderPayloadSchema.safeParse(normalizeDraft(draft));
+  const parsed = BrowserOrderPayloadSchema.safeParse(normalizeDraft(draft));
   const errors: Record<string, string> = {};
   if (!parsed.success)
     for (const issue of parsed.error.issues) {
@@ -49,8 +49,10 @@ export function validateCheckoutDraft(draft: Draft) {
 }
 // Step 7 supplies a real key; validation alone does not generate or consume one.
 export function buildCreateOrderRequest(draft: Draft, idempotencyKey: string) {
-  return CreateOrderRequestSchema.safeParse({
+  return BrowserCreateOrderRequestSchema.safeParse({
     idempotencyKey,
-    payload: normalizeDraft(draft),
+    payload: (() => {
+      return normalizeDraft(draft);
+    })(),
   });
 }

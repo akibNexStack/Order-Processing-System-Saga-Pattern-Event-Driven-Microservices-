@@ -6,14 +6,14 @@ import {
   retryDeadline,
 } from "../../src/lib/checkout/submission";
 import { payload, orderReply, orderId } from "../fixtures/checkout";
-import type { CreateOrderRequest } from "@saga/shared/contracts";
+import type { BrowserCreateOrderRequest } from "@saga/shared/contracts";
 
 const ready = () => {
   const store = createCheckoutStore(() => crypto.randomUUID());
   store.getState().updateDraft(payload);
   return store;
 };
-const reply = (request: CreateOrderRequest, status = 202) => ({
+const reply = (request: BrowserCreateOrderRequest, status = 202) => ({
   body: orderReply(request, status),
   status,
   retryAfter: null,
@@ -23,10 +23,10 @@ const reply = (request: CreateOrderRequest, status = 202) => ({
 test("submission locks synchronously and a double click sends only once", async () => {
   const store = ready();
   let resolve!: (value: ReturnType<typeof reply>) => void;
-  let original!: CreateOrderRequest;
+  let original!: BrowserCreateOrderRequest;
   let calls = 0;
   const ids: string[] = [];
-  const send = (request: CreateOrderRequest) => {
+  const send = (request: BrowserCreateOrderRequest) => {
     calls++;
     original = request;
     return new Promise<ReturnType<typeof reply>>((r) => {
@@ -57,7 +57,7 @@ test("network, timeout, unavailable and malformed replies keep the exact retry s
     422,
   ]) {
     const store = ready();
-    let original!: CreateOrderRequest;
+    let original!: BrowserCreateOrderRequest;
     await submitCheckout(
       store,
       async (request) => {

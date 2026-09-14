@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import type { CreateOrderRequest } from "@saga/shared/contracts";
+import type { BrowserCreateOrderRequest, CreateOrderRequest } from "@saga/shared/contracts";
 import type { OrderState } from "../../src/lib/api/contracts";
 export const orderId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 export const payload: CreateOrderRequest["payload"] = {
@@ -17,7 +17,7 @@ export const payload: CreateOrderRequest["payload"] = {
   },
 };
 export function orderReply(
-  request: CreateOrderRequest,
+  request: BrowserCreateOrderRequest,
   status = 202,
 ): OrderState {
   const time = "2026-09-08T06:00:00.000Z";
@@ -25,6 +25,7 @@ export function orderReply(
     order: {
       id: orderId,
       ...request.payload,
+      customerId: payload.customerId,
       paymentMethod: request.payload.paymentMethod ?? "COD",
       idempotencyKey: request.idempotencyKey,
       createdAt: time,
@@ -46,7 +47,7 @@ export function orderReply(
       compensatedSteps: [],
       inventoryFinalized: false,
       lastResult: null,
-      payload: request.payload,
+      payload: { ...request.payload, customerId: payload.customerId },
       version: 1,
       attempts: 0,
       brokerAttempts: 0,

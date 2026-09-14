@@ -35,6 +35,13 @@ export const CreateOrderRequestSchema = z.strictObject({
   idempotencyKey: IdempotencyKeySchema,
   payload: OrderPayloadSchema,
 });
+// This is the only create-order shape accepted from a browser. The server adds
+// customerId from the authenticated session before forwarding it internally.
+export const BrowserOrderPayloadSchema = OrderPayloadSchema.omit({ customerId: true });
+export const BrowserCreateOrderRequestSchema = z.strictObject({
+  idempotencyKey: IdempotencyKeySchema,
+  payload: BrowserOrderPayloadSchema,
+});
 export const SagaStatusSchema = z.enum(['PENDING_PAYMENT', 'IN_PROGRESS', 'COMPENSATING', 'COMPLETED', 'FAILED']);
 export const SagaStepSchema = z.enum(['PAYMENT', 'INVENTORY', 'SHIPPING']);
 export const FORWARD_STEPS = ['PAYMENT', 'INVENTORY', 'SHIPPING'] as const;
@@ -106,6 +113,7 @@ export const ResultSchema = z.union([SuccessResultSchema, FailureResultSchema, U
 
 export type OrderPayload = z.infer<typeof OrderPayloadSchema>;
 export type CreateOrderRequest = z.infer<typeof CreateOrderRequestSchema>;
+export type BrowserCreateOrderRequest = z.infer<typeof BrowserCreateOrderRequestSchema>;
 export type ShippingAddress = z.infer<typeof AddressSchema>;
 export type PaymentMethod = z.infer<typeof PaymentMethodSchema>;
 export type OrderItems = z.infer<typeof ItemsSchema>;

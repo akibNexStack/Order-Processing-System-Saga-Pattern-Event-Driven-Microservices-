@@ -52,7 +52,7 @@ test("checkout stores are isolated and draft edits clone their inputs", () => {
   input.shippingAddress.line1 = "Changed";
   assert.equal(first.getState().draft.items[0].quantity, 1);
   assert.equal(first.getState().draft.shippingAddress.line1, "Private street");
-  assert.equal(second.getState().draft.customerId, "");
+  assert.equal(second.getState().draft.customerId, undefined);
   assert.equal(first.getState().idempotencyKey, null);
 });
 

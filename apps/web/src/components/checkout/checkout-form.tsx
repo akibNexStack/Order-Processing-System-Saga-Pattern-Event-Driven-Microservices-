@@ -120,10 +120,9 @@ export function CheckoutForm() {
       .then((value) => {
         const user = value?.user ?? null;
         setAccount(user);
-        if (user?.id) updateDraft({ customerId: user.id });
       })
       .catch(() => setAccount(null));
-  }, [updateDraft]);
+  }, []);
   function validate(event: FormEvent) {
     event.preventDefault();
     if (locked) return;

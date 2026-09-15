@@ -6,6 +6,8 @@ import { randomBytes, scrypt as scryptCallback, timingSafeEqual, createHash } fr
 import { promisify } from 'node:util';
 import { z } from 'zod';
 import nodemailer from 'nodemailer';
+import { bodyLimit } from 'hono/body-limit';
+import { cleanupSql, clientIp, mutationError } from './security.js';
 import { instrumentHttp, ServiceMetrics } from '@saga/shared';
 import { structuredLogger } from '@saga/shared/messaging';
 
@@ -38,7 +40,8 @@ const tokenInput = z.object({ token: z.string().min(32).max(200) });
 const resetInput = tokenInput.extend({ password: z.string().min(12).max(200) });
 const emailInput = z.object({ email: z.email().transform(v => v.trim().toLowerCase()) });
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
-const ipHash = (request: Request) => hash((request.headers.get('x-forwarded-for')?.split(',')[0] ?? request.headers.get('x-real-ip') ?? 'unknown').trim());
+const proxyToken = process.env.AUTH_PROXY_TOKEN;
+const ipHash = (request: Request) => hash(clientIp(request, proxyToken));
 const details = (request: Request) => ({ userAgent: request.headers.get('user-agent')?.slice(0, 200) ?? 'unknown' });
 
 async function passwordHash(password: string) {
@@ -83,6 +86,12 @@ async function issueToken(table: 'email_verification_tokens' | 'password_reset_t
 }
 
 const app = new Hono();
+app.use('/auth/*', bodyLimit({ maxSize: 32 * 1024, onError: c => c.json({ error: 'Request body exceeds 32 KiB' }, 413) }));
+app.use('/auth/*', async (c, next) => {
+  const error = mutationError(c.req.raw, publicUrl, process.env.NODE_ENV === 'production');
+  if (error) return c.json({ error: error.error }, error.status as 403 | 415);
+  return next();
+});
 app.get('/health', c => c.json({ service: 'auth-service', status: 'ok' }));
 app.get('/ready', async c => { try { await pool.query('SELECT 1'); return c.json({ status: 'ready' }); } catch { return c.json({ status: 'not_ready' }, 503); } });
 app.get('/metrics', c => c.text(metrics.render(), 200, { 'Content-Type': 'text/plain; version=0.0.4; charset=utf-8' }));
@@ -193,6 +202,8 @@ app.post('/auth/password-reset/confirm', async c => {
 });
 
 const cleanupEvery = z.coerce.number().int().min(60_000).max(86_400_000).parse(process.env.SESSION_CLEANUP_INTERVAL_MS ?? 3_600_000);
-const cleanupTimer = setInterval(() => { void pool.query('DELETE FROM sessions WHERE expires_at<=now()').catch(() => {}); }, cleanupEvery);
+const retentionDays = z.coerce.number().int().min(1).max(3650).parse(process.env.AUTH_AUDIT_RETENTION_DAYS ?? 365);
+const cleanup = () => pool.query(cleanupSql(retentionDays)).catch(() => {});
+const cleanupTimer = setInterval(cleanup, cleanupEvery);
 cleanupTimer.unref();
 serve({ fetch: instrumentHttp('auth-service', metrics, log, app.fetch), port: Number(process.env.PORT ?? 3005) });

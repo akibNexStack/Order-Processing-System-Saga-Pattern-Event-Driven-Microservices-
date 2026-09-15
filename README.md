@@ -13,6 +13,12 @@ The runtime uses RabbitMQ commands/results with transactional outboxes and autom
 Order POST returns asynchronous progress; poll the status endpoint for completion.
 See the [final architecture](docs/ARCHITECTURE.md), [API and security model](docs/API_AND_SECURITY.md), and [operations runbooks](docs/RUNBOOKS.md).
 
+## Authentication security configuration
+
+The Auth Service limits mutation bodies to 32 KiB and accepts JSON only. In production it rejects browser mutations whose `Origin` is not `AUTH_PUBLIC_URL`. Set `AUTH_PROXY_TOKEN` to a long random server-only value in both the Next.js deployment and Auth Service; only requests carrying that value may provide `X-Forwarded-For` for rate limiting. Configure `AUTH_AUDIT_RETENTION_DAYS` (default: 365) and `SESSION_CLEANUP_INTERVAL_MS` for scheduled removal of expired sessions, expired/used tokens, stale rate-limit windows, and aged audit records.
+
+MFA, breached-password intelligence, user session management, account disablement, and audited administrator role changes remain planned application features; they require dedicated account-management routes and UI, plus an approved password-intelligence provider and MFA recovery policy.
+
 ## Table of Contents
 
 1. [Problem Statement](#1-problem-statement)

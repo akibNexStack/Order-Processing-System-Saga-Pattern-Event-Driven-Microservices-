@@ -2,10 +2,11 @@ import type { Readiness } from '@saga/shared/messaging';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { CreateShipmentCommandSchema, CancelShipmentCommandSchema, IdSchema } from '@saga/shared';
+import type { ServiceMetrics } from '@saga/shared';
 import type { ShippingService } from './shipments/service.js';
 
 // Create a Hono application for the shipping service, with endpoints for health checks, shipment operations (create and cancel), and retrieving shipment status for specific orders. The application includes request validation, error handling, and readiness checks.
-export function createApp(service: ShippingService, ready?: Readiness) {
+export function createApp(service: ShippingService, ready?: Readiness, metrics?: ServiceMetrics) {
   const app = new Hono();
 
   // Health check endpoints
@@ -23,6 +24,7 @@ export function createApp(service: ShippingService, ready?: Readiness) {
 
   // Basic health check endpoint
   app.get('/health', (c) => c.json({ service: 'shipping-service', status: 'ok' }));
+  app.get('/metrics', c => metrics ? c.text(metrics.render(), 200, { 'Content-Type': 'text/plain; version=0.0.4; charset=utf-8' }) : c.text('# metrics not configured\n'));
 
   // Shipment-related endpoints
   app.use(

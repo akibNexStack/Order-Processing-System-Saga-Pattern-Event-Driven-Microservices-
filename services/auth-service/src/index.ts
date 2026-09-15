@@ -5,8 +5,12 @@ import pg from 'pg';
 import { randomBytes, scrypt as scryptCallback, timingSafeEqual, createHash } from 'node:crypto';
 import { promisify } from 'node:util';
 import { z } from 'zod';
+import { instrumentHttp, ServiceMetrics } from '@saga/shared';
+import { structuredLogger } from '@saga/shared/messaging';
 
 const scrypt = promisify(scryptCallback);
+const log = structuredLogger('auth-service');
+const metrics = new ServiceMetrics('auth-service');
 const pool = new pg.Pool({ connectionString: z.string().min(1).parse(process.env.DATABASE_URL) });
 const admins = new Set((process.env.ADMIN_EMAILS ?? '').split(',').map(v => v.trim().toLowerCase()).filter(Boolean));
 const publicUrl = new URL(process.env.AUTH_PUBLIC_URL ?? 'http://localhost:3004').origin;
@@ -54,6 +58,7 @@ async function issueToken(table: 'email_verification_tokens' | 'password_reset_t
 const app = new Hono();
 app.get('/health', c => c.json({ service: 'auth-service', status: 'ok' }));
 app.get('/ready', async c => { try { await pool.query('SELECT 1'); return c.json({ status: 'ready' }); } catch { return c.json({ status: 'not_ready' }, 503); } });
+app.get('/metrics', c => c.text(metrics.render(), 200, { 'Content-Type': 'text/plain; version=0.0.4; charset=utf-8' }));
 
 app.post('/auth/register', async c => {
   if (await limited('register', c.req.raw, 5)) return c.json({ error: 'Too many attempts. Try again later.' }, 429);
@@ -163,4 +168,4 @@ app.post('/auth/password-reset/confirm', async c => {
 const cleanupEvery = z.coerce.number().int().min(60_000).max(86_400_000).parse(process.env.SESSION_CLEANUP_INTERVAL_MS ?? 3_600_000);
 const cleanupTimer = setInterval(() => { void pool.query('DELETE FROM sessions WHERE expires_at<=now()').catch(() => {}); }, cleanupEvery);
 cleanupTimer.unref();
-serve({ fetch: app.fetch, port: Number(process.env.PORT ?? 3005) });
+serve({ fetch: instrumentHttp('auth-service', metrics, log, app.fetch), port: Number(process.env.PORT ?? 3005) });

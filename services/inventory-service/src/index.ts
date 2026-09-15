@@ -5,6 +5,7 @@ import {
   structuredLogger,
 } from '@saga/shared/messaging';
 import type { CommandFor } from '@saga/shared';
+import { instrumentHttp, ServiceMetrics } from '@saga/shared';
 import 'dotenv/config';
 import { protectService } from '@saga/shared/http';
 import { serve } from '@hono/node-server';
@@ -16,6 +17,7 @@ import { InventoryService } from './inventory/service.js';
 // Initialize the inventory service with configuration from environment variables, set up database connection, messaging, and start the HTTP server to handle incoming requests.
 
 const log = structuredLogger('inventory-service');
+const metrics = new ServiceMetrics('inventory-service');
 const port = z.coerce
   .number()
   .int()
@@ -26,8 +28,9 @@ const { pool } = createDatabase(z.string().min(1).parse(process.env.DATABASE_URL
 
 // Create an instance of the InventoryService and set up the Hono application with readiness checks. Start the HTTP server to handle incoming requests for inventory operations.
 const service = new InventoryService(pool);
+const app = createApp(service, () => readiness(pool, messaging)(), metrics);
 const server = serve(
-  { fetch: protectService(createApp(service, () => readiness(pool, messaging)()).fetch), port },
+  { fetch: protectService(instrumentHttp('inventory-service', metrics, log, app.fetch)), port },
   (info) => {
     log({ event: 'http_started' });
   },

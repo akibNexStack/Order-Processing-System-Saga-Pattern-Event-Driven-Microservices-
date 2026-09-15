@@ -3,6 +3,7 @@ import 'dotenv/config';
 import { protectService } from '@saga/shared/http';
 import { serve } from '@hono/node-server';
 import { z } from 'zod';
+import { instrumentHttp, ServiceMetrics } from '@saga/shared';
 import { createDatabase } from './db/client.js';
 import { createApp } from './app.js';
 import { BrokerOrderService } from './saga/brokerOrders.js';
@@ -12,6 +13,7 @@ import { RabbitWorker, readiness, structuredLogger } from '@saga/shared/messagin
 // Initialize the order orchestrator service with configuration from environment variables, set up database connection, messaging, and recovery workers, and start the HTTP server to handle incoming requests.
 
 const log = structuredLogger('order-orchestrator');
+const metrics = new ServiceMetrics('order-orchestrator');
 const port = z.coerce.number().int().min(1).max(65535).parse(process.env.PORT ?? 3000);
 const { pool } = createDatabase(z.string().min(1).parse(process.env.DATABASE_URL));
 const timeout = z.coerce.number().int().min(1000).max(3600000).parse(process.env.SAGA_COMMAND_TIMEOUT_MS ?? 30000);
@@ -32,7 +34,8 @@ recovery.start();
 
 
 // Start the HTTP server with the order orchestrator application, and set up signal handlers for graceful shutdown of the service.
-const server = serve({ fetch: protectService(createApp(service, () => readiness(pool, messaging, recovery)(), true).fetch), port }, info => {
+const app = createApp(service, () => readiness(pool, messaging, recovery)(), true, metrics);
+const server = serve({ fetch: protectService(instrumentHttp('order-orchestrator', metrics, log, app.fetch)), port }, info => {
   log({ event: 'http_started' });
 });
 

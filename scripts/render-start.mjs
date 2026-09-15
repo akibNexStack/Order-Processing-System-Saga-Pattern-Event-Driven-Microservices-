@@ -1,6 +1,10 @@
 const service = process.argv[2];
-if (!['payment-service', 'inventory-service', 'shipping-service', 'order-orchestrator'].includes(service))
+if (!['auth-service', 'payment-service', 'inventory-service', 'shipping-service', 'order-orchestrator'].includes(service))
   throw new Error('Unknown service');
+if (service === 'auth-service') {
+  await import('../services/auth-service/dist/index.js');
+  process.exitCode = process.exitCode ?? 0;
+} else {
 if (!process.env.RABBITMQ_URL) {
   const { RABBITMQ_HOST, RABBITMQ_USER, RABBITMQ_PASSWORD } = process.env;
   if (!RABBITMQ_HOST || !RABBITMQ_USER || !RABBITMQ_PASSWORD) throw new Error('RabbitMQ configuration is required');
@@ -10,3 +14,4 @@ if (!process.env.RABBITMQ_URL) {
   process.env.RABBITMQ_URL = url.href;
 }
 await import(`../services/${service}/dist/index.js`);
+}

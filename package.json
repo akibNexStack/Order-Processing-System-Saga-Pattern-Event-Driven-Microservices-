@@ -39,7 +39,8 @@
     "test:orchestrator": "npm run build && node --test --test-isolation=none --test-reporter=spec tests/orchestrator/*.test.mjs",
     "test:messaging": "npm run build && node --test --test-isolation=none --test-reporter=spec tests/messaging/*.test.mjs",
     "test:recovery": "npm run build && node --test --test-isolation=none --test-reporter=spec tests/recovery/*.test.mjs",
-    "test:system": "npm run build && node --test --test-isolation=none --test-reporter=spec tests/system/*.test.mjs"
+    "test:system": "npm run build && node --test --test-isolation=none --test-reporter=spec tests/system/*.test.mjs",
+    "test:phase5": "npm run build && node --test --test-isolation=none --test-reporter=spec tests/orchestrator/*.test.mjs tests/inventory/*.test.mjs tests/payment/*.test.mjs tests/shipping/*.test.mjs tests/messaging/*.test.mjs tests/recovery/*.test.mjs tests/system/*.test.mjs"
   },
   "devDependencies": {
     "@types/amqplib": "^0.10.8",

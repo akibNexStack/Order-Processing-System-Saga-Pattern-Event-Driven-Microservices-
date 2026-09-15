@@ -7,10 +7,11 @@ import {
   FinalizeInventoryCommandSchema,
   IdSchema,
 } from '@saga/shared';
+import type { ServiceMetrics } from '@saga/shared';
 import type { InventoryService } from './inventory/service.js';
 
 // Create a Hono application for the inventory service, with endpoints for health checks, inventory operations (reserve, release, finalize), and retrieving reservation status for specific orders. The application includes request validation, error handling, and readiness checks.
-export function createApp(service: InventoryService, ready?: Readiness) {
+export function createApp(service: InventoryService, ready?: Readiness, metrics?: ServiceMetrics) {
   const app = new Hono();
 
   // Health check endpoints
@@ -28,6 +29,7 @@ export function createApp(service: InventoryService, ready?: Readiness) {
 
   // Basic health check endpoint
   app.get('/health', (c) => c.json({ service: 'inventory-service', status: 'ok' }));
+  app.get('/metrics', c => metrics ? c.text(metrics.render(), 200, { 'Content-Type': 'text/plain; version=0.0.4; charset=utf-8' }) : c.text('# metrics not configured\n'));
 
   // Availability is a current snapshot; reserve performs the final locked
   // stock check when an order is submitted.

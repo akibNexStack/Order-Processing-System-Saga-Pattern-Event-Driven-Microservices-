@@ -2,6 +2,7 @@ import type { Readiness } from '@saga/shared/messaging';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { CreateOrderRequestSchema, IdSchema } from '@saga/shared';
+import type { ServiceMetrics } from '@saga/shared';
 import { OrderConflict, type OrderService } from './orders/service.js';
 
 type Identity = { userId: string; role: 'CUSTOMER' | 'ADMIN' };
@@ -17,7 +18,7 @@ function forbidden(c: { json: (body: unknown, status: 401 | 403) => Response }, 
   return c.json({ error: authenticated ? 'You do not have permission to access this order' : 'Authentication is required' }, authenticated ? 403 : 401);
 }
 
-export function createApp(service: OrderService, ready?: Readiness, requireIdentity = false) {
+export function createApp(service: OrderService, ready?: Readiness, requireIdentity = false, metrics?: ServiceMetrics) {
 
   // Create a new Hono application instance
   const app = new Hono();
@@ -32,6 +33,7 @@ export function createApp(service: OrderService, ready?: Readiness, requireIdent
 
   // Basic health check endpoint
   app.get('/health', c => c.json({ service: 'order-orchestrator', status: 'ok' }));
+  app.get('/metrics', c => metrics ? c.text(metrics.render(), 200, { 'Content-Type': 'text/plain; version=0.0.4; charset=utf-8' }) : c.text('# metrics not configured\n'));
 
 
   // Order-related endpoints

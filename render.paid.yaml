@@ -2,6 +2,29 @@
 # Paid, always-on demo resources. Review Render's cost estimate before applying.
 # Never use real customer/payment data in this simulated demo.
 services:
+  - type: web
+    name: saga-auth
+    runtime: docker
+    dockerfilePath: ./Dockerfile.backend
+    dockerContext: .
+    dockerCommand: node scripts/render-start.mjs auth-service
+    preDeployCommand: node scripts/migrate-service.mjs auth-service
+    plan: 0.5c-512mb
+    region: singapore
+    healthCheckPath: /health
+    autoDeployTrigger: "off"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: saga-auth-db
+          property: connectionString
+      - key: ADMIN_EMAILS
+        sync: false
+      - key: AUTH_PUBLIC_URL
+        sync: false
+      - key: SESSION_CLEANUP_INTERVAL_MS
+        value: "3600000"
+
   - type: pserv
     name: saga-rabbitmq
     runtime: image
@@ -168,6 +191,13 @@ envVarGroups:
         generateValue: true
 
 databases:
+  - name: saga-auth-db
+    region: singapore
+    plan: 0.1c-256mb
+    diskSizeGB: 1
+    postgresMajorVersion: "17"
+    databaseName: saga
+    ipAllowList: []
   - name: saga-payment-db
     region: singapore
     plan: 0.1c-256mb

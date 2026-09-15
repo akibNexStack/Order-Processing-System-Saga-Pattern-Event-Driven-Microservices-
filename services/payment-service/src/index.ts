@@ -5,6 +5,7 @@ import {
   structuredLogger,
 } from '@saga/shared/messaging';
 import type { CommandFor } from '@saga/shared';
+import { instrumentHttp, ServiceMetrics } from '@saga/shared';
 import 'dotenv/config';
 import { protectService } from '@saga/shared/http';
 import { serve } from '@hono/node-server';
@@ -17,6 +18,7 @@ import { LocalPaymentProvider } from './providers/local-provider.js';
 // Initialize the payment service with configuration from environment variables, set up database connection, messaging, and start the HTTP server to handle incoming requests.
 
 const log = structuredLogger('payment-service');
+const metrics = new ServiceMetrics('payment-service');
 const port = z.coerce
   .number()
   .int()
@@ -37,8 +39,8 @@ const timeout = z.coerce
 const { pool } = createDatabase(databaseUrl);
 const { pool: providerPool } = createDatabase(databaseUrl);
 const service = new PaymentService(pool, new LocalPaymentProvider(providerPool, mode), timeout);
-const app = createApp(service, () => readiness(pool, messaging)());
-const server = serve({ fetch: protectService(app.fetch), port }, (info) => {
+const app = createApp(service, () => readiness(pool, messaging)(), metrics);
+const server = serve({ fetch: protectService(instrumentHttp('payment-service', metrics, log, app.fetch)), port }, (info) => {
   log({ event: 'http_started' });
 });
 

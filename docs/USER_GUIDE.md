@@ -2,29 +2,29 @@
 
 ## 1. What the platform does
 
-The platform demonstrates a checkout that spans four independent services: orders, payment, inventory, and shipping. You submit one order; the backend coordinates the work and the interface shows its progress and recorded results.
+The platform processes orders through Auth, Orders, Payment, Inventory, and Shipping services. You sign in, select available products, submit one order, and the backend coordinates the work while the interface shows its progress and recorded results.
 
 A successful checkout charges a **simulated** payment, reserves inventory, creates a **simulated** shipment, and finalizes the inventory reservation. If a later operation is rejected, the backend attempts the appropriate cleanup, such as releasing stock and refunding payment. This cleanup is called **compensation**.
 
-No real money is charged and no physical delivery is arranged. Use fictional customer and delivery information. This is a demo workspace, not a production store.
+Payment and shipping providers are simulated: no real money is charged and no physical delivery is arranged. Use fictional delivery information.
 
 ## 2. Open the application
 
-### Hosted demo
+### Hosted workspace
 
-Open the **frontend URL supplied by the project owner**. The four Render service URLs are backend APIs, not the user interface. If the demo is access-protected, ask its owner for access; you should not need the backend API token to use the browser interface.
+Open the **frontend URL supplied by the project owner**. Backend service URLs are APIs, not the user interface. Register an account or sign in; you should not need the backend API token to use the browser interface.
 
 The project owner must configure the frontend before use. Follow the [deployment guide](../DEPLOYMENT.md) if you are responsible for hosting. Do not assume a frontend has been deployed merely because backend URLs exist.
 
 ### Local application
 
-Follow the [local startup guide](PART_10_VALIDATION.md), then open `http://localhost:3004`. Normal users do not need to run database commands when using an already hosted application.
+Follow the local setup commands in the [root README](../README.md), then open `http://localhost:3004`. Normal users do not need to run database commands when using an already hosted application.
 
 ### Before creating an order
 
 1. Open **Services** from the navigation. On a phone, use **Open navigation** first.
 2. Select **Refresh all services** and wait for the checks to finish.
-3. Confirm orders, payment, inventory, and shipping are all **Ready**.
+3. Confirm orders, payment, inventory, and shipping are all **Ready**. Auth is checked when you sign in.
 4. If a service is unavailable, wait and refresh. Contact the project owner if it remains unavailable.
 
 Health indicates that a service responds. Readiness indicates that its required dependencies are available. A responding service can still be unready. Free-hosted services may sleep; a timeout during wake-up does not prove an order failed. The owner may need to wake all four backend services separately.
@@ -35,7 +35,7 @@ Health indicates that a service responds. Readiness indicates that its required 
 | --- | --- |
 | **Overview** | See readiness, orders needing attention, and recent order IDs from this browser |
 | **Platform Features** | Read the in-app explanation of capabilities, workflow, and limitations |
-| **Create Order** | Enter and validate a demo checkout, then submit it |
+| **Create Order** | Select available products, enter delivery details, and submit an order |
 | **Orders** | Look up an order by ID and manage browser-local recent history |
 | **Order details** | Inspect progress, payment, inventory, shipment, history, and recovery controls |
 | **Attention** | Find orders that require intervention; the response contains at most 100 records |
@@ -43,25 +43,22 @@ Health indicates that a service responds. Readiness indicates that its required 
 
 ## 4. Create your first order
 
-Use this example after all services are ready and demo stock is available.
+Use this example after all services are ready and stock is available.
 
-1. Open **Create Order**.
-2. Enter the following fictional details. Select **Demo Keyboard** with quantity **1**.
+1. Register or sign in, then open **Create Order**.
+2. Select **Mechanical Keyboard** with quantity **1**, choose a payment method, and enter fictional delivery details.
 
    | Field | Example |
    | --- | --- |
-   | Customer ID | `33333333-3333-4333-8333-333333333333` |
-   | Amount | `125.00` |
-   | Currency | `BDT` |
-   | Recipient | `Demo Customer` |
+   | Recipient | `Sample Customer` |
    | Address line 1 | `10 Test Road` |
    | City | `Dhaka` |
    | Postal code | `1207` |
    | Country code | `BD` |
 
-   Address line 2 and region are optional. Customer ID is a UUID for the demo, not a login or verified customer account.
+   Address line 2 and region are optional. Your signed-in account is attached automatically; you do not enter a customer ID.
 
-3. Review **Order summary**. The amount is a manually entered demo total, not a calculated product price. `125.00` in the form becomes `12500` minor units in the API.
+3. Review **Order summary**. Prices come from the catalog and the backend recalculates the trusted total.
 4. Click **Validate order**. Correct any highlighted fields. This action—and pressing Enter in a field—does **not** create an order.
 5. Click **Create order** once. Wait for the response; do not start a replacement checkout while the outcome is uncertain.
 6. On the resulting order page, save the **order ID** or bookmark the page. The submission receipt records acceptance, not necessarily completion.
@@ -72,9 +69,8 @@ The demo product choices reflect initial seed data, not guaranteed current stock
 ### Input rules
 
 - Select at least one product with a positive whole-number quantity.
-- Use a valid UUID for Customer ID.
-- Amount must be positive with at most two decimal places. Enter `125.00`, not `125,00` or a value with a currency symbol.
-- Currency is BDT or USD; changing it does not convert the amount.
+- Keep quantities within the displayed stock limit; final availability is confirmed by Inventory when you submit.
+- Catalog prices are displayed in the selected currency and the backend stores integer minor units.
 - Complete the required address fields and use a two-letter country code such as `BD`.
 - **Clear draft** removes an editable draft. After a settled submission, **Start new checkout** begins a separate order with a new retry identity.
 
@@ -128,7 +124,7 @@ A resume acceptance does not guarantee completion. If its outcome cannot be conf
 
 ## 9. Demonstrate an expected failure
 
-To show how compensation works, create a separate order containing **Demo Monitor** with quantity 1. Its initial demo stock is zero.
+To show how compensation works, create a separate order containing **27-inch Monitor** with quantity 1. Its initial stock is zero.
 
 Expected outcome: payment succeeds first, inventory rejects the reservation, payment is refunded, and the order reaches **FAILED**. No shipment should be created. Verify the stored states and history rather than treating the initial submission response as the final result.
 

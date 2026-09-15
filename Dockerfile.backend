@@ -13,7 +13,7 @@ COPY shared ./shared
 COPY services ./services
 COPY tsconfig.json ./
 COPY scripts ./scripts
-RUN npm run build -w @saga/shared && npm run build -w payment-service && npm run build -w inventory-service && npm run build -w shipping-service && npm run build -w order-orchestrator
+RUN npm run build -w @saga/shared && npm run build -w auth-service && npm run build -w payment-service && npm run build -w inventory-service && npm run build -w shipping-service && npm run build -w order-orchestrator
 RUN npm prune --omit=dev
 FROM node:24-bookworm-slim
 WORKDIR /app

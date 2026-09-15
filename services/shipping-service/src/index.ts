@@ -5,6 +5,7 @@ import {
   structuredLogger,
 } from '@saga/shared/messaging';
 import type { CommandFor } from '@saga/shared';
+import { instrumentHttp, ServiceMetrics } from '@saga/shared';
 import 'dotenv/config';
 import { protectService } from '@saga/shared/http';
 import { serve } from '@hono/node-server';
@@ -17,6 +18,7 @@ import { LocalShippingProvider } from './providers/local-provider.js';
 // Initialize the shipping service with configuration from environment variables, set up database connection, messaging, and start the HTTP server to handle incoming requests.
 
 const log = structuredLogger('shipping-service');
+const metrics = new ServiceMetrics('shipping-service');
 const port = z.coerce
   .number()
   .int()
@@ -40,9 +42,9 @@ const { pool: providerPool } = createDatabase(databaseUrl);
 // Create an instance of the ShippingService with a LocalShippingProvider, and set up the Hono application with readiness checks. Start the HTTP server to handle incoming requests for shipment operations.
 const service = new ShippingService(pool, new LocalShippingProvider(providerPool, mode), timeout);
 
-const app = createApp(service, () => readiness(pool, messaging)());
+const app = createApp(service, () => readiness(pool, messaging)(), metrics);
 
-const server = serve({ fetch: protectService(app.fetch), port }, (info) => {
+const server = serve({ fetch: protectService(instrumentHttp('shipping-service', metrics, log, app.fetch)), port }, (info) => {
   log({ event: 'http_started' });
 });
 

@@ -4,14 +4,14 @@ A distributed order-processing system built to demonstrate how to safely coordin
 
 Built with **Hono**, **TypeScript**, **PostgreSQL**, and **RabbitMQ**.
 
-**Using the application?** Start with the [User Guide](docs/USER_GUIDE.md) for checkout, order tracking, recovery, and demo instructions. Browse the [documentation index](docs/README.md) for setup and technical references.
+**Using the application?** Start with the [User Guide](docs/USER_GUIDE.md) for sign-in, checkout, order tracking, and recovery. Browse the [documentation index](docs/README.md) for setup and technical references.
 
 ---
 
-The project includes a responsive Next.js dashboard and four backend services.
+The project includes a responsive Next.js dashboard, an Auth Service, and four transaction services.
 The runtime uses RabbitMQ commands/results with transactional outboxes and automatic recovery.
 Order POST returns asynchronous progress; poll the status endpoint for completion.
-See the [complete startup, validation, and troubleshooting runbook](docs/PART_10_VALIDATION.md), [RabbitMQ transport](docs/PART_8_MESSAGING.md), and [automatic recovery](docs/PART_9_RECOVERY.md).
+See the [final architecture](docs/ARCHITECTURE.md), [API and security model](docs/API_AND_SECURITY.md), and [operations runbooks](docs/RUNBOOKS.md).
 
 ## Table of Contents
 
@@ -217,7 +217,7 @@ Each service owns its Drizzle schemas and generated SQL migrations:
 
 Amounts use bounded integer minor units, matching the shared contracts. Command receipts
 provide database uniqueness for idempotency; service handlers apply atomic local
-business operations. See [database design, seed data, and tests](docs/PART_2_DATABASES.md).
+business operations. See the [final architecture and data ownership](docs/ARCHITECTURE.md).
 
 ---
 
@@ -239,7 +239,7 @@ Payment and shipping are simulated. Use fictional data; this is not a production
 The complete runtime includes validated contracts, separate service databases,
 Payment/Inventory/Shipping services, RabbitMQ orchestration, reverse compensation,
 transactional outboxes, and automatic recovery. See the
-[system runbook and validation matrix](docs/PART_10_VALIDATION.md) for startup,
+[operations runbooks](docs/RUNBOOKS.md) for startup,
 API examples, failure simulation, and troubleshooting. Earlier part documents
 explain the individual service contracts and implementation decisions.
 
@@ -285,9 +285,7 @@ after installing Chromium as described in the frontend guide.
 The orchestrator listens on port **3000**, payment on **3001**, inventory on **3002**,
 shipping on **3003**, and Auth Service on **3005**. Each exposes `GET /health` for liveness and `GET /ready` for
 dependency readiness. The saga now runs over RabbitMQ with automatic recovery.
-See [Order checkout, resume, and troubleshooting](docs/PART_10_VALIDATION.md),
-[Payment examples](docs/PART_3_PAYMENT.md),
-[Inventory examples](docs/PART_4_INVENTORY.md), and [Shipping examples](docs/PART_5_SHIPPING.md).
+See the [User Guide](docs/USER_GUIDE.md), [API and security model](docs/API_AND_SECURITY.md), and [operations runbooks](docs/RUNBOOKS.md).
 
 RabbitMQ management is available at `http://localhost:15672` with local development
 credentials `saga` / `saga`. PostgreSQL ports are **5433–5437**, mapped to payment,

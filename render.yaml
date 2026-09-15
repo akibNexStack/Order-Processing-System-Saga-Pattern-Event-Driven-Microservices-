@@ -4,6 +4,26 @@
 # Free services can sleep; wake all four and verify readiness before a demo.
 services:
   - type: web
+    name: saga-auth
+    runtime: docker
+    dockerfilePath: ./Dockerfile.backend
+    dockerContext: .
+    dockerCommand: node scripts/render-boot.mjs auth-service
+    plan: free
+    region: singapore
+    healthCheckPath: /health
+    autoDeployTrigger: "off"
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: ADMIN_EMAILS
+        sync: false
+      - key: AUTH_PUBLIC_URL
+        sync: false
+      - key: SESSION_CLEANUP_INTERVAL_MS
+        value: "3600000"
+
+  - type: web
     name: saga-orders
     runtime: docker
     dockerfilePath: ./Dockerfile.backend

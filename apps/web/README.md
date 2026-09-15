@@ -27,7 +27,7 @@ npm ci
 npm run dev:web
 ```
 
-Open `http://localhost:3004`. Configure backend origins in `apps/web/.env.local` using [`.env.example`](.env.example). Follow the [backend runbook](../../docs/PART_10_VALIDATION.md) to configure service databases and RabbitMQ, then run:
+Open `http://localhost:3004`. Configure backend origins in `apps/web/.env.local` using [`.env.example`](.env.example). Follow the [root README](../../README.md) to configure service databases and RabbitMQ, then run:
 
 ```bash
 npm run infra:up

@@ -2,16 +2,10 @@
 
 This document lists what is still incomplete before this system should be presented as production-ready. Complete the sections in order.
 
-## phase 1. Email delivery and verified accounts
+## phase 1. Verified accounts
 
-- [ ] Choose a transactional email provider: Resend, Postmark, Amazon SES, or SendGrid.
-- [ ] Verify the `nexstack.sg` sending domain with SPF, DKIM, and DMARC DNS records.
-- [ ] Add `EMAIL_API_KEY` and `AUTH_EMAIL_FROM` as Auth Service secrets.
-- [ ] Implement an email-provider adapter in Auth Service.
-- [ ] Send verification and reset URLs through the provider instead of logs.
-- [ ] Reject production startup when `AUTH_EMAIL_MODE=log`.
 - [ ] Require verified email before creating an order or performing administrator actions.
-- [ ] Test verification token expiry, reuse prevention, and delivery failure behavior.
+- [x] Test verification token expiry and reuse prevention.
 
 ## phase 2. Authentication hardening
 

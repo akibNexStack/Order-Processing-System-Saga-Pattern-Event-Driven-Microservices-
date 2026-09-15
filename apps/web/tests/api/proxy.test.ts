@@ -159,6 +159,25 @@ test("rejects unknown paths, wrong methods and oversized bodies before contactin
   );
 });
 
+test("unverified sessions cannot create, resume, or approve orders", async () => {
+  const session = { user: { id: "11111111-1111-4111-8111-111111111111", role: "CUSTOMER", emailVerified: false } };
+  for (const [path, segments, init] of [
+    ["orders", ["orders"], { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ idempotencyKey: "checkout-1", payload: { items: [] } }) }],
+    ["orders/11111111-1111-4111-8111-111111111111/resume", ["orders", "11111111-1111-4111-8111-111111111111", "resume"], { method: "POST" }],
+    ["orders/11111111-1111-4111-8111-111111111111/confirm-payment", ["orders", "11111111-1111-4111-8111-111111111111", "confirm-payment"], { method: "POST" }],
+  ] as const) {
+    let contactedOrderService = false;
+    const response = await proxyRequest(req(path, init), [...segments], config, async (url) => {
+      if (String(url).endsWith("/auth/session")) return Response.json(session);
+      contactedOrderService = true;
+      return Response.json({ ok: true });
+    });
+    assert.equal(response.status, 403);
+    assert.equal((await response.json()).code, "EMAIL_VERIFICATION_REQUIRED");
+    assert.equal(contactedOrderService, false);
+  }
+});
+
 test("invalid JSON, HTML and redirects become sanitized 502 errors", async () => {
   for (const response of [
     new Response("<html>oops</html>"),

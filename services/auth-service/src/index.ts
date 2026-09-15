@@ -5,6 +5,7 @@ import pg from 'pg';
 import { randomBytes, scrypt as scryptCallback, timingSafeEqual, createHash } from 'node:crypto';
 import { promisify } from 'node:util';
 import { z } from 'zod';
+import nodemailer from 'nodemailer';
 import { instrumentHttp, ServiceMetrics } from '@saga/shared';
 import { structuredLogger } from '@saga/shared/messaging';
 
@@ -14,6 +15,20 @@ const metrics = new ServiceMetrics('auth-service');
 const pool = new pg.Pool({ connectionString: z.string().min(1).parse(process.env.DATABASE_URL) });
 const admins = new Set((process.env.ADMIN_EMAILS ?? '').split(',').map(v => v.trim().toLowerCase()).filter(Boolean));
 const publicUrl = new URL(process.env.AUTH_PUBLIC_URL ?? 'http://localhost:3004').origin;
+const emailMode = z.enum(['log', 'smtp']).parse(process.env.AUTH_EMAIL_MODE ?? 'log');
+const emailFrom = process.env.AUTH_EMAIL_FROM;
+const smtpHost = process.env.SMTP_HOST;
+const smtpUser = process.env.SMTP_USER;
+const smtpPass = process.env.SMTP_PASS;
+const smtpPort = z.coerce.number().int().min(1).max(65535).parse(process.env.SMTP_PORT ?? 465);
+const smtpSecure = (process.env.SMTP_SECURE ?? 'true') === 'true';
+if (process.env.NODE_ENV === 'production' && emailMode === 'log')
+  throw new Error('AUTH_EMAIL_MODE=smtp is required in production');
+if (emailMode === 'smtp' && (!emailFrom || !smtpHost || !smtpUser || !smtpPass))
+  throw new Error('AUTH_EMAIL_FROM, SMTP_HOST, SMTP_USER, and SMTP_PASS are required for SMTP delivery');
+const transporter = emailMode === 'smtp'
+  ? nodemailer.createTransport({ host: smtpHost, port: smtpPort, secure: smtpSecure, auth: { user: smtpUser, pass: smtpPass } })
+  : null;
 const credentials = z.object({ email: z.email().transform(v => v.trim().toLowerCase()), password: z.string().min(12).max(200) });
 const tokenInput = z.object({ token: z.string().min(32).max(200) });
 const resetInput = tokenInput.extend({ password: z.string().min(12).max(200) });
@@ -50,8 +65,16 @@ async function issueToken(table: 'email_verification_tokens' | 'password_reset_t
   await pool.query(`DELETE FROM ${table} WHERE user_id=$1 AND consumed_at IS NULL`, [user.id]);
   await pool.query(`INSERT INTO ${table}(token_hash,user_id,expires_at) VALUES($1,$2,now()+($3 || ' hours')::interval)`, [hash(token), user.id, hours]);
   const path = table === 'email_verification_tokens' ? '/verify-email' : '/reset-password';
-  // Tokens are deliberately never returned by the API. Replace this log adapter in production.
-  if ((process.env.AUTH_EMAIL_MODE ?? 'log') === 'log') console.info(JSON.stringify({ event: `${table}_queued`, recipient: user.email, url: `${publicUrl}${path}?token=${token}` }));
+  const url = `${publicUrl}${path}?token=${token}`;
+  if (emailMode === 'log') {
+    // Local development only. Production startup rejects this mode.
+    console.info(JSON.stringify({ event: `${table}_queued`, recipient: user.email, url }));
+  } else {
+    const subject = table === 'email_verification_tokens' ? 'Verify your Saga Order Workspace email' : 'Reset your Saga Order Workspace password';
+    const action = table === 'email_verification_tokens' ? 'Verify email' : 'Reset password';
+    await transporter!.sendMail({ from: emailFrom, to: user.email, subject,
+      html: `<p>Use the secure link below to continue.</p><p><a href="${url}">${action}</a></p><p>This link expires soon and can be used once.</p>` });
+  }
   await audit(pool, table === 'email_verification_tokens' ? 'EMAIL_VERIFICATION_SENT' : 'PASSWORD_RESET_SENT', request, user.id);
 }
 

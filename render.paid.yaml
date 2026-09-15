@@ -22,6 +22,20 @@ services:
         sync: false
       - key: AUTH_PUBLIC_URL
         sync: false
+      - key: AUTH_EMAIL_MODE
+        value: smtp
+      - key: AUTH_EMAIL_FROM
+        sync: false
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "465"
+      - key: SMTP_SECURE
+        value: "true"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
       - key: SESSION_CLEANUP_INTERVAL_MS
         value: "3600000"
 

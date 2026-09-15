@@ -31,4 +31,6 @@ The browser calls same-origin Next.js routes. The proxy verifies the `saga_sessi
 - Keep `BACKEND_API_TOKEN` server-only; rotate it across Vercel and every backend together.
 - Keep databases and RabbitMQ private. `/health` is liveness only; `/ready` and business routes require service access.
 - Set `ADMIN_EMAILS` before administrator registration. Use a real email delivery provider before enabling public account verification/reset flows.
+- Nodemailer SMTP delivery uses `AUTH_EMAIL_MODE=smtp`, `AUTH_EMAIL_FROM`, `SMTP_HOST`, `SMTP_USER`, and server-only `SMTP_PASS`. For Gmail, use a Google App Password. Local `log` mode is rejected when `NODE_ENV=production`.
+- Users must verify their email before creating an order; administrators must also be verified before resuming a Saga or confirming a bank transfer.
 - Never log passwords, tokens, addresses, raw database errors, or message payloads. Use request IDs, order IDs, Saga IDs, and message IDs for investigation.

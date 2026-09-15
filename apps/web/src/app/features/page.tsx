@@ -43,7 +43,7 @@ export default function FeaturesPage() {
     <Card className="order-panel" aria-label="Capabilities and limits">
       <CardHeading title="Capabilities and current limits" />
       <p>Product cards use the shared server-owned catalog. The backend recalculates totals, while Inventory Service remains responsible for the live stock check during reservation. The Postman collection still exposes direct participant commands for controlled testing; do not issue competing commands against an active order.</p>
-      <p>Email/password accounts use a dedicated Auth Service and auth database. Session cookies are HTTP-only. Google sign-in, password reset, email verification, user profile editing, and a full restocking/product-management console are not implemented yet.</p>
+      <p>Email/password accounts use a dedicated Auth Service and auth database. Session cookies are HTTP-only. Password reset and email verification use one-time, time-limited tokens; production still needs a real email delivery provider. Google sign-in, user profile editing, and a full restocking/product-management console are not implemented yet.</p>
       <p>Run the complete local stack with Docker Compose to include Auth Service and auth-db. A sleeping dependency can delay processing; use Services and order history to investigate, then resume eligible work. Production deployment must configure auth database backups, HTTPS, ADMIN_EMAILS, and secrets.</p>
     </Card>
   </>;

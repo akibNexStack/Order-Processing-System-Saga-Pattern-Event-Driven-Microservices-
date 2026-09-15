@@ -192,7 +192,7 @@ export async function proxyRequest(
     if (config.apiToken) headers.set("Authorization", `Bearer ${config.apiToken}`);
     const requiresIdentity = !["/health", "/ready"].includes(target.path);
     const token = /(?:^|;\s*)saga_session=([^;]+)/.exec(request.headers.get('cookie') ?? '')?.[1];
-    let session: { user?: { id?: string; role?: "CUSTOMER" | "ADMIN" } } | undefined;
+    let session: { user?: { id?: string; role?: "CUSTOMER" | "ADMIN"; emailVerified?: boolean } } | undefined;
     if (requiresIdentity) try {
       const auth = await fetcher(`${process.env.AUTH_SERVICE_URL ?? "http://127.0.0.1:3005"}/auth/session`, {
         headers: token ? { "x-session-token": token } : {}, cache: "no-store", signal: controller.signal,
@@ -207,6 +207,9 @@ export async function proxyRequest(
     const role = session?.user?.role;
     if (requiresIdentity && (!userId || (role !== "CUSTOMER" && role !== "ADMIN")))
       return proxyError(401, "AUTHENTICATION_REQUIRED", "Sign in to access order operations");
+    const requiresVerifiedEmail = target.path === "/orders" || target.path.endsWith("/resume") || target.path.endsWith("/confirm-payment");
+    if (requiresVerifiedEmail && !session?.user?.emailVerified)
+      return proxyError(403, "EMAIL_VERIFICATION_REQUIRED", "Verify your email before performing this action");
     if (userId && role) {
       headers.set("X-Saga-User-Id", userId);
       headers.set("X-Saga-Role", role);

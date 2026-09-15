@@ -160,6 +160,23 @@ export class OrderService {
     });
   }
 
+  // This is an administrator queue, deliberately limited and restricted by
+  // the HTTP layer. It exposes only the information needed to locate and
+  // review a bank-transfer order before confirming it.
+  async pendingPayments() {
+    const rows = await drizzle(this.pool).select({
+      orderId: orders.id,
+      amountMinor: orders.amountMinor,
+      currency: orders.currency,
+      createdAt: orders.createdAt,
+      updatedAt: sagaInstances.updatedAt,
+    }).from(orders)
+      .innerJoin(sagaInstances, eq(orders.id, sagaInstances.orderId))
+      .where(and(eq(orders.paymentMethod, 'BANK_TRANSFER'), eq(sagaInstances.status, 'PENDING_PAYMENT')))
+      .orderBy(asc(orders.createdAt)).limit(100);
+    return rows;
+  }
+
   async status(orderId: string) {
     return drizzle(this.pool).transaction(async tx => {
       const [row] = await tx.select({ order: orders, saga: sagaInstances }).from(orders)

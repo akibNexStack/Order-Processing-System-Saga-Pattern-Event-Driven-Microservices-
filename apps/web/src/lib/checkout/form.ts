@@ -3,7 +3,9 @@ import {
   BrowserOrderPayloadSchema,
   type OrderPayload,
 } from "@saga/shared/contracts";
-import { calculateOrderTotal, catalog } from "@saga/shared";
+// Do not import the shared package root in browser code: it also exposes
+// server-only idempotency utilities that depend on node:crypto.
+import { calculateOrderTotal, catalog } from "@saga/shared/catalog";
 
 export const products = catalog;
 export function calculateCheckoutTotal(items: OrderPayload["items"]): number | null {

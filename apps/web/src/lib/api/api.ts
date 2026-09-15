@@ -71,6 +71,10 @@ export const sagaApi = createApi({
       query: () => ({ url: "orders/attention", schema: c.AttentionSchema }),
       providesTags: ["Attention"],
     }),
+    getPendingPayments: build.query<Reply<typeof c.PendingPaymentsSchema>, void>({
+      query: () => ({ url: "orders/pending-payments", schema: c.PendingPaymentsSchema }),
+      providesTags: ["Order"],
+    }),
     resumeOrder: build.mutation<Reply<typeof c.OrderStateSchema>, string>({
       async queryFn(id, _api, _extra, baseQuery) {
         const result = await baseQuery({
@@ -207,6 +211,7 @@ export const {
   useGetOrderQuery,
   useGetOrderHistoryQuery,
   useGetAttentionQuery,
+  useGetPendingPaymentsQuery,
   useResumeOrderMutation,
   useConfirmPaymentMutation,
   useGetPaymentQuery,

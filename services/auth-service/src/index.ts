@@ -22,6 +22,10 @@ const smtpUser = process.env.SMTP_USER;
 const smtpPass = process.env.SMTP_PASS;
 const smtpPort = z.coerce.number().int().min(1).max(65535).parse(process.env.SMTP_PORT ?? 465);
 const smtpSecure = (process.env.SMTP_SECURE ?? 'true') === 'true';
+// Keep the conservative production default, but permit a separate local
+// development limit. Local Next.js requests may not include a client IP and
+// would otherwise all share the same "unknown" rate-limit bucket.
+const registerRateLimit = z.coerce.number().int().min(1).max(1000).parse(process.env.AUTH_REGISTER_RATE_LIMIT_MAX ?? 5);
 if (process.env.NODE_ENV === 'production' && emailMode === 'log')
   throw new Error('AUTH_EMAIL_MODE=smtp is required in production');
 if (emailMode === 'smtp' && (!emailFrom || !smtpHost || !smtpUser || !smtpPass))
@@ -84,7 +88,7 @@ app.get('/ready', async c => { try { await pool.query('SELECT 1'); return c.json
 app.get('/metrics', c => c.text(metrics.render(), 200, { 'Content-Type': 'text/plain; version=0.0.4; charset=utf-8' }));
 
 app.post('/auth/register', async c => {
-  if (await limited('register', c.req.raw, 5)) return c.json({ error: 'Too many attempts. Try again later.' }, 429);
+  if (await limited('register', c.req.raw, registerRateLimit)) return c.json({ error: 'Too many attempts. Try again later.' }, 429);
   const data = credentials.safeParse(await c.req.json().catch(() => null));
   if (!data.success) return c.json({ error: 'Use a valid email and a password of at least 12 characters' }, 400);
   try {

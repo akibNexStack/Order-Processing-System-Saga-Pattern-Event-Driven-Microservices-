@@ -21,6 +21,7 @@ export const navigation: {
     icon: "alert",
     group: "Operations",
   },
+  { href: "/admin/payments", label: "Payment approvals", icon: "alert", group: "Operations" },
   { href: "/services", label: "Services", icon: "server", group: "Operations" },
   { href: "/account", label: "Account", icon: "info", group: "Workspace" },
 ];

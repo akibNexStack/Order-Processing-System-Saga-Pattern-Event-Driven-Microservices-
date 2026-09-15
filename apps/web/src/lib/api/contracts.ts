@@ -160,6 +160,17 @@ export const PaymentStateSchema = z.looseObject({
     .nullable(),
 });
 
+export const PendingPaymentsSchema = z.looseObject({
+  limit: z.number().int().positive().max(100),
+  orders: z.array(z.looseObject({
+    orderId: IdSchema,
+    amountMinor: AmountMinorSchema,
+    currency: CurrencySchema,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  })).max(100),
+});
+
 export const ReservationStateSchema = z.looseObject({
   reservation: z.looseObject({
     ...record,

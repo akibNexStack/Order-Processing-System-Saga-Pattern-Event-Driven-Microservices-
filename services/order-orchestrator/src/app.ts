@@ -81,6 +81,15 @@ export function createApp(service: OrderService, ready?: Readiness, requireIdent
     return c.json({ orders: await service.attention(), limit: 100 });
   });
 
+  // Bank transfers require an explicit administrator action; this queue lets
+  // an administrator find them without knowing an order UUID in advance.
+  app.get('/orders/pending-payments', async c => {
+    const actor = identity(c);
+    if (!actor && requireIdentity) return forbidden(c, false);
+    if (actor && actor.role !== 'ADMIN') return forbidden(c, true);
+    return c.json({ orders: await service.pendingPayments(), limit: 100 });
+  });
+
   // Endpoint to retrieve the history of a specific order
   app.get('/orders/:orderId/history', async c => {
     const actor = identity(c);

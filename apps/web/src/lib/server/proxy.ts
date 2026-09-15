@@ -11,6 +11,11 @@ const staticTargets: Record<string, Target> = {
     path: "/orders/attention",
     method: "GET",
   },
+  "orders/pending-payments": {
+    service: "orders",
+    path: "/orders/pending-payments",
+    method: "GET",
+  },
   "payments/charge": {
     service: "payment",
     path: "/payments/charge",
@@ -47,6 +52,20 @@ const staticTargets: Record<string, Target> = {
     method: "POST",
   },
 };
+// These are direct participant command endpoints intended for administrators.
+// Public catalog reads are also static targets, but are available to any
+// authenticated customer.
+const adminStaticTargets = new Set([
+  "orders/attention",
+  "orders/pending-payments",
+  "payments/charge",
+  "payments/refund",
+  "inventory/reserve",
+  "inventory/release",
+  "inventory/finalize",
+  "shipments/create",
+  "shipments/cancel",
+]);
 
 // Match fixed endpoint shapes only. URL segments are encoded, never treated as origins.
 export function resolveTarget(segments: string[]): Target | undefined {
@@ -240,7 +259,7 @@ export async function proxyRequest(
       }
       await access.body?.cancel();
     }
-    if (segments.join("/") !== "orders" && Object.hasOwn(staticTargets, segments.join("/")) && role !== "ADMIN")
+    if (adminStaticTargets.has(segments.join("/")) && role !== "ADMIN")
       return proxyError(403, "ADMIN_REQUIRED", "Administrator access is required");
     const contentType = request.headers.get("content-type");
     if (contentType) headers.set("Content-Type", contentType);

@@ -19,6 +19,10 @@ The Auth Service limits mutation bodies to 32 KiB and accepts JSON only. In prod
 
 MFA, breached-password intelligence, user session management, account disablement, and audited administrator role changes remain planned application features; they require dedicated account-management routes and UI, plus an approved password-intelligence provider and MFA recovery policy.
 
+### Google sign-in
+
+Google sign-in is optional. Create a Google OAuth **Web application** client and add `https://your-domain/api/auth/google/callback` (and `http://localhost:3004/api/auth/google/callback` for local development) as authorized redirect URIs. Set `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` only in the Next.js server environment, and set the same server-only `AUTH_PROXY_TOKEN` in Next.js and Auth Service. Google verifies the identity; Auth Service stores only the stable Google subject and creates the normal application session.
+
 ## Table of Contents
 
 1. [Problem Statement](#1-problem-statement)

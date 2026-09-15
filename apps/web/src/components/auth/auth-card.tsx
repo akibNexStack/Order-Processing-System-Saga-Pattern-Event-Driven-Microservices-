@@ -52,6 +52,7 @@ export function AuthCard({ mode }: { mode: "login" | "register" }) {
             <Input label="Password" name="password" type="password" autoComplete={register ? "new-password" : "current-password"} minLength={12} hint={register ? "Use at least 12 characters." : undefined} required />
             {error && <p className="field-error auth-error" role="alert">{error}</p>}
             <Button type="submit" disabled={pending}>{pending ? (register ? "Creating account…" : "Signing in…") : (register ? "Create account" : "Sign in")}</Button>
+            <ButtonLink href="/api/auth/google" variant="secondary" className="auth-google">Continue with Google</ButtonLink>
             {!register && <ButtonLink href="/forgot-password" variant="ghost" className="auth-recovery-link">Forgot your password?</ButtonLink>}
             <p className="auth-switch">
               {register ? "Already have an account?" : "New to the workspace?"}{" "}

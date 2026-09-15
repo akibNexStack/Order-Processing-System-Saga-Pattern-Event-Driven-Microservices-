@@ -28,6 +28,7 @@ import { PageHeading } from "../layout/page-heading";
 import { Card } from "../ui/card";
 import { Button, ButtonLink } from "../ui/button";
 import { StatusBadge } from "../ui/status-badge";
+import { useSessionUser } from "@/lib/auth/session";
 
 function productName(productId: string) {
   return products.find((product) => sameId(product.id, productId))?.name ?? "Unknown product";
@@ -263,6 +264,7 @@ function Participants({
 }
 
 export function OrderDetails({ orderId }: { orderId: string }) {
+  const user = useSessionUser();
   const query = useGetOrderQuery(orderId, manualQueryOptions);
   const data = query.currentData?.body;
   const verified = !!data && matchesOrder(data, orderId);
@@ -410,7 +412,7 @@ export function OrderDetails({ orderId }: { orderId: string }) {
                 </address>
               </div>
             </div>
-            {data.saga.status === "PENDING_PAYMENT" && data.order.paymentMethod === "BANK_TRANSFER" && (
+            {user?.role === "ADMIN" && data.saga.status === "PENDING_PAYMENT" && data.order.paymentMethod === "BANK_TRANSFER" && (
               <div className="checkout-actions">
                 <Button disabled={confirmation.isLoading} onClick={() => void confirmPayment(orderId)}>
                   {confirmation.isLoading ? "Confirming payment…" : "Confirm bank-transfer payment"}

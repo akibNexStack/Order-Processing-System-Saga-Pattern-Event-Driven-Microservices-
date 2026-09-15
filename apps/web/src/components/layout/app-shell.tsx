@@ -7,6 +7,7 @@ import { useUiStore } from "@/components/providers/state-provider";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { currentNavigation, navigation } from "./navigation";
+import { useSessionUser, type SessionUser } from "@/lib/auth/session";
 
 function Brand({ onNavigate }: { onNavigate?: () => void }) {
   return (
@@ -33,6 +34,7 @@ function Navigation({
   active?: string;
   onNavigate?: () => void;
 }) {
+  const user = useSessionUser();
   return (
     <nav aria-label="Primary navigation">
       {["Workspace", "Operations"].map((group) => (
@@ -40,7 +42,7 @@ function Navigation({
           <p className="nav-label">{group}</p>
           <ul>
             {navigation
-              .filter((item) => item.group === group)
+              .filter((item) => item.group === group && (item.href !== "/admin/payments" || user?.role === "ADMIN"))
               .map((item) => (
                 <li key={item.href}>
                   <Link
@@ -76,20 +78,8 @@ function SidebarNote() {
   );
 }
 
-type SessionUser = { id: string; email: string; role: "ADMIN" | "CUSTOMER" };
-
 function AccountNavigation() {
-  const [user, setUser] = useState<SessionUser | null | undefined>(undefined);
-
-  useEffect(() => {
-    const loadSession = () => fetch("/api/auth/session")
-      .then((response) => (response.ok ? response.json() : null))
-      .then((value) => setUser(value?.user ?? null))
-      .catch(() => setUser(null));
-    void loadSession();
-    window.addEventListener("saga-auth-change", loadSession);
-    return () => window.removeEventListener("saga-auth-change", loadSession);
-  }, []);
+  const user = useSessionUser();
 
   if (user === undefined) return <span className="account-nav-loading">Checking account…</span>;
   if (!user) return <div className="topbar-auth"><Link href="/login">Sign in</Link><Link className="topbar-register" href="/register">Create account</Link></div>;

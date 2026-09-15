@@ -39,6 +39,7 @@ const credentials = z.object({ email: z.email().transform(v => v.trim().toLowerC
 const tokenInput = z.object({ token: z.string().min(32).max(200) });
 const resetInput = tokenInput.extend({ password: z.string().min(12).max(200) });
 const emailInput = z.object({ email: z.email().transform(v => v.trim().toLowerCase()) });
+const googleIdentity = z.object({ subject: z.string().min(1).max(255), email: z.email().transform(v => v.trim().toLowerCase()) });
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const proxyToken = process.env.AUTH_PROXY_TOKEN;
 const ipHash = (request: Request) => hash(clientIp(request, proxyToken));
@@ -138,6 +139,45 @@ app.post('/auth/login', async c => {
   } catch {
     await client.query('ROLLBACK').catch(() => {});
     return c.json({ error: 'Authentication is temporarily unavailable' }, 503);
+  } finally { client.release(); }
+});
+
+// Only the server-side Next.js OAuth callback may create a Google session.
+// Never expose AUTH_PROXY_TOKEN to the browser.
+app.post('/auth/google', async c => {
+  if (!proxyToken || c.req.header('authorization') !== `Bearer ${proxyToken}`)
+    return c.json({ error: 'Google sign-in is not configured' }, 503);
+  const data = googleIdentity.safeParse(await c.req.json().catch(() => null));
+  if (!data.success) return c.json({ error: 'Invalid Google identity' }, 400);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: bySubject } = await client.query('SELECT id,email,role FROM users WHERE google_subject=$1 FOR UPDATE', [data.data.subject]);
+    let user = bySubject[0];
+    if (!user) {
+      const { rows: byEmail } = await client.query('SELECT id,email,role,google_subject FROM users WHERE email=$1 FOR UPDATE', [data.data.email]);
+      if (byEmail[0]?.google_subject && byEmail[0].google_subject !== data.data.subject) {
+        await client.query('ROLLBACK');
+        return c.json({ error: 'This email is already linked to another sign-in method' }, 409);
+      }
+      if (byEmail[0]) {
+        user = byEmail[0];
+        await client.query('UPDATE users SET google_subject=$2,email_verified_at=COALESCE(email_verified_at,now()) WHERE id=$1', [user.id, data.data.subject]);
+      } else {
+        const role = admins.has(data.data.email) ? 'ADMIN' : 'CUSTOMER';
+        const generatedPassword = await passwordHash(randomBytes(32).toString('base64url'));
+        const { rows } = await client.query('INSERT INTO users(email,password_hash,role,google_subject,email_verified_at) VALUES($1,$2,$3,$4,now()) RETURNING id,email,role', [data.data.email, generatedPassword, role, data.data.subject]);
+        user = rows[0];
+      }
+    }
+    await client.query('DELETE FROM sessions WHERE user_id=$1', [user.id]);
+    const session = await createSession(client, user);
+    await audit(client, 'GOOGLE_LOGIN_SUCCEEDED', c.req.raw, user.id);
+    await client.query('COMMIT');
+    return c.json(session);
+  } catch {
+    await client.query('ROLLBACK').catch(() => {});
+    return c.json({ error: 'Google sign-in is temporarily unavailable' }, 503);
   } finally { client.release(); }
 });
 

@@ -231,6 +231,8 @@ svg {
 .auth-form-heading p { margin-top:4px; color:var(--muted); font-size:12px; }
 .auth-form-mark { display:grid; place-items:center; width:38px; height:38px; border-radius:10px; background:#e7f2ee; color:var(--accent); font-weight:700; }
 .auth-form .button--primary { width:100%; margin-top:4px; }
+.auth-google { width:100%; justify-content:center; border-color:#b7c9c1; background:#fff; color:var(--ink); }
+.auth-google:hover { background:#f2f7f4; border-color:#7da695; }
 .auth-switch { color:var(--muted); font-size:12px; text-align:center; }
 .auth-switch .button { min-height:0; padding:0; color:var(--accent); vertical-align:baseline; }
 .auth-error { border-left:3px solid #b63737; padding-left:10px; }

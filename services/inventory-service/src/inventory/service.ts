@@ -54,8 +54,11 @@ export class InventoryService {
           const requested = command.payload.items;
           // Every operation locks products in UUID order, including releases.
           const stock = await tx.select().from(products).where(inArray(products.id, requested.map(item => item.productId))).orderBy(asc(products.id)).for('update');
-          const available = new Map(stock.map(product => [product.id, product.availableStock]));
-          if (requested.some(item => (available.get(item.productId) ?? -1) < item.quantity)) {
+          const available = new Map(stock.map(product => [product.id, product]));
+          if (requested.some(item => {
+            const product = available.get(item.productId);
+            return !product?.active || product.availableStock < item.quantity;
+          })) {
             result = failure(command, 'INSUFFICIENT_STOCK', 'One or more products are missing or have insufficient stock');
             await tx.update(reservations).set({ status: 'FAILED', reserveFingerprint: fingerprint, reserveResult: result, updatedAt: new Date() }).where(eq(reservations.id, reservation.id));
           } else {
@@ -107,5 +110,22 @@ export class InventoryService {
       .leftJoin(reservationItems, eq(reservations.id, reservationItems.reservationId)).where(eq(reservations.orderId, orderId)).orderBy(asc(reservationItems.productId));
     if (!rows.length) return null;
     return { reservation: rows[0].reservation, items: rows.flatMap(row => row.item ? [row.item] : []) };
+  }
+
+  async listProducts() {
+    return drizzle(this.pool).select({
+      id: products.id, sku: products.sku, name: products.name,
+      priceMinor: products.priceMinor, active: products.active,
+      availableStock: products.availableStock, updatedAt: products.updatedAt,
+    }).from(products).orderBy(asc(products.sku));
+  }
+
+  async getProduct(id: string) {
+    const [product] = await drizzle(this.pool).select({
+      id: products.id, sku: products.sku, name: products.name,
+      priceMinor: products.priceMinor, active: products.active,
+      availableStock: products.availableStock, updatedAt: products.updatedAt,
+    }).from(products).where(eq(products.id, id));
+    return product ?? null;
   }
 }

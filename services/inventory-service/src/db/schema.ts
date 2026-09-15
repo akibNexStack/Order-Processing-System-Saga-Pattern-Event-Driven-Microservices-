@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { pgTable, uuid, varchar, text, bigint, integer, jsonb, timestamp, check, index, unique, primaryKey, foreignKey } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, bigint, integer, boolean, jsonb, timestamp, check, index, unique, primaryKey, foreignKey } from 'drizzle-orm/pg-core';
 
 const createdAt = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow();
 const updatedAt = () => timestamp('updated_at', { withTimezone: true }).notNull().defaultNow();
@@ -8,11 +8,14 @@ export const products = pgTable('products', {
   id: uuid('id').primaryKey().defaultRandom(),
   sku: varchar('sku', { length: 100 }).notNull().unique(),
   name: varchar('name', { length: 200 }).notNull(),
+  priceMinor: bigint('price_minor', { mode: 'number' }).notNull(),
+  active: boolean('active').notNull().default(true),
   availableStock: integer('available_stock').notNull().default(0),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 }, (t) => [
   check('stock_nonnegative', sql`${t.availableStock} >= 0`),
+  check('product_price_positive', sql`${t.priceMinor} > 0`),
   check('product_text_valid', sql`length(trim(${t.sku})) > 0 AND length(trim(${t.name})) > 0`),
 ]);
 

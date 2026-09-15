@@ -61,7 +61,7 @@ The system remains an internal COD and bank-transfer workflow. It does not proce
 
 **Completion checkpoint:** accounts have a secure lifecycle and an audit trail.
 
-## Phase 3 — Dynamic catalog and inventory availability
+## Phase 3 — Dynamic catalog and inventory availability — implemented locally
 
 **Goal:** Replace static browser catalog data with service-owned product and stock APIs.
 
@@ -82,6 +82,8 @@ The system remains an internal COD and bank-transfer workflow. It does not proce
 - A stale browser stock snapshot cannot cause an oversell; reservation still decides final success.
 
 **Completion checkpoint:** frontend catalog data is dynamic, while backend validation remains authoritative.
+
+**Implemented:** Inventory now stores product price and active state, serves authenticated catalog endpoints, and exposes live stock in checkout. Inactive and zero-stock products cannot be selected. The Order Orchestrator still recalculates the trusted total and Inventory still makes the final row-locked reservation decision.
 
 ## Phase 4 — Observability and operations
 

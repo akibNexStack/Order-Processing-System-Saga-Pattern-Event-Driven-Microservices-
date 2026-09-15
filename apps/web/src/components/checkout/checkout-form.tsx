@@ -8,10 +8,9 @@ import {
   useCheckoutStoreApi,
   useUiStore,
 } from "@/components/providers/state-provider";
-import { useCreateOrderMutation } from "@/lib/api/api";
+import { useCreateOrderMutation, useGetProductsQuery } from "@/lib/api/api";
 import { submitCheckout } from "@/lib/checkout/submission";
 import {
-  products,
   formatMinor,
   validateCheckoutDraft,
 } from "@/lib/checkout/form";
@@ -89,6 +88,13 @@ export function CheckoutForm() {
   const remember = useUiStore((state) => state.addRecentOrder);
   const hydration = useUiStore((state) => state.hydration);
   const [createOrder] = useCreateOrderMutation();
+  const {
+    data: catalogReply,
+    isLoading: isCatalogLoading,
+    isError: isCatalogError,
+  } = useGetProductsQuery();
+  const products = catalogReply?.body.products ?? [];
+  const catalogReady = !!catalogReply && !isCatalogError;
   const router = useRouter();
   const mounted = useRef(false);
   const [now, setNow] = useState(0);
@@ -218,26 +224,31 @@ export function CheckoutForm() {
               >
                 <legend>Catalog</legend>
                 <p id="product-catalog-note">
-                  Prices are verified by the server before the order is saved. Availability is confirmed when you submit.
+                  Live stock is shown below. Prices and availability are checked again when you submit.
                 </p>
                 {errors.items && (
                   <p id="items-error" className="field-error">
                     Select at least one product. {errors.items}
                   </p>
                 )}
+                {isCatalogLoading && <p role="status">Loading current catalog…</p>}
+                {isCatalogError && <p role="alert" className="field-error">The catalog could not be loaded. Refresh the page and try again.</p>}
+                {catalogReady && products.length === 0 && <p role="status">No products are available right now.</p>}
                 <div className="product-card-grid">{products.map((product) => {
                   const index = draft.items.findIndex(
                     (item) => item.productId === product.id,
                   );
                   const item = draft.items[index];
+                  const canOrder = product.active && product.availableStock > 0;
                   return (
-                    <article className={`product-card ${item ? "product-card--selected" : ""}`} key={product.id}>
+                    <article className={`product-card ${item ? "product-card--selected" : ""} ${canOrder ? "" : "product-card--unavailable"}`} key={product.id}>
                       <div className={`product-card__visual product-card__visual--${product.sku.toLowerCase()}`} aria-hidden="true"><span>{product.name.slice(0, 1)}</span></div>
-                      <span className="product-card__availability">Availability checked at submission</span>
+                      <span className="product-card__availability">{!product.active ? "Unavailable" : product.availableStock === 0 ? "Out of stock" : `${product.availableStock} in stock`}</span>
                       <label className="product-card__choice">
                         <input
                           type="checkbox"
                           checked={!!item}
+                          disabled={!canOrder && !item}
                           aria-invalid={!!errors.items}
                           aria-describedby={
                             errors.items ? "items-error" : undefined
@@ -267,7 +278,7 @@ export function CheckoutForm() {
                           type="number"
                           inputMode="numeric"
                           min={1}
-                          max={10000}
+                          max={Math.min(10000, product.availableStock)}
                           step={1}
                           required
                           value={
@@ -289,7 +300,7 @@ export function CheckoutForm() {
                             })
                           }
                           error={errors[`items.${index}.quantity`]}
-                          hint="Whole number from 1 to 10,000."
+                          hint={`Whole number from 1 to ${Math.min(10000, product.availableStock)}.`}
                         />
                       )}
                     </article>
@@ -384,7 +395,7 @@ export function CheckoutForm() {
               </div>
             </fieldset>
             <div className="checkout-actions">
-              <Button type="submit" disabled={locked || !account}>
+              <Button type="submit" disabled={locked || !account || !catalogReady}>
                 Validate order
               </Button>
               <Button
@@ -400,7 +411,7 @@ export function CheckoutForm() {
                 {phase === "settled" ? "Start new checkout" : "Clear draft"}
               </Button>
               <Button
-                disabled={locked || hydration === "pending" || !account}
+                disabled={locked || hydration === "pending" || !account || !catalogReady}
                 onClick={() => void submit()}
                 aria-describedby="submission-notice"
               >

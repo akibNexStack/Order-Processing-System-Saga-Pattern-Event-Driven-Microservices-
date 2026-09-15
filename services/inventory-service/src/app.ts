@@ -29,6 +29,16 @@ export function createApp(service: InventoryService, ready?: Readiness) {
   // Basic health check endpoint
   app.get('/health', (c) => c.json({ service: 'inventory-service', status: 'ok' }));
 
+  // Availability is a current snapshot; reserve performs the final locked
+  // stock check when an order is submitted.
+  app.get('/products', async (c) => c.json({ products: await service.listProducts() }));
+  app.get('/products/:productId', async (c) => {
+    const id = IdSchema.safeParse(c.req.param('productId'));
+    if (!id.success) return c.json({ error: 'Invalid product ID' }, 400);
+    const product = await service.getProduct(id.data.toLowerCase());
+    return product ? c.json({ product }) : c.json({ error: 'Product not found' }, 404);
+  });
+
   // Inventory-related endpoints
   app.use(
     '/inventory/*',

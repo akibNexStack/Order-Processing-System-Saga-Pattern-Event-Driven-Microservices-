@@ -26,7 +26,7 @@ const command = (url: string, body: { operation: string }) => ({
 export const sagaApi = createApi({
   reducerPath: "sagaApi",
   baseQuery: createBaseQuery(),
-  tagTypes: ["Order", "Attention", "Payment", "Inventory", "Shipment"],
+  tagTypes: ["Order", "Attention", "Payment", "Inventory", "Shipment", "Catalog"],
   keepUnusedDataFor: 30,
   refetchOnMountOrArgChange: true,
   refetchOnFocus: true,
@@ -134,6 +134,10 @@ export const sagaApi = createApi({
         providesTags: ["Inventory"],
       },
     ),
+    getProducts: build.query<Reply<typeof c.CatalogSchema>, void>({
+      query: () => ({ url: "products", schema: c.CatalogSchema }),
+      providesTags: ["Catalog"],
+    }),
     reserveInventory: build.mutation<
       ApiResponse<Result>,
       CommandFor<"RESERVE_INVENTORY">
@@ -209,6 +213,7 @@ export const {
   useChargePaymentMutation,
   useRefundPaymentMutation,
   useGetReservationQuery,
+  useGetProductsQuery,
   useReserveInventoryMutation,
   useReleaseInventoryMutation,
   useFinalizeInventoryMutation,

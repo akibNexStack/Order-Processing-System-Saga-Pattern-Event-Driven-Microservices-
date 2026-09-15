@@ -4,6 +4,7 @@ import { BrowserCreateOrderRequestSchema } from "@saga/shared/contracts";
 
 type Target = { service: ServiceName; path: string; method: "GET" | "POST" };
 const staticTargets: Record<string, Target> = {
+  products: { service: "inventory", path: "/products", method: "GET" },
   orders: { service: "orders", path: "/orders", method: "POST" },
   "orders/attention": {
     service: "orders",
@@ -62,6 +63,9 @@ export function resolveTarget(segments: string[]): Target | undefined {
   const key = segments.join("/");
   if (Object.hasOwn(staticTargets, key)) return staticTargets[key];
   const [resource, id, action] = segments;
+  if (segments.length === 2 && resource === "products") {
+    return { service: "inventory", path: `/products/${encodeURIComponent(id)}`, method: "GET" };
+  }
   if (
     segments.length === 3 &&
     resource === "services" &&

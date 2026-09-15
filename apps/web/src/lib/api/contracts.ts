@@ -26,6 +26,20 @@ const record = {
   updatedAt: timestamp,
 };
 
+export const ProductSchema = z.looseObject({
+  id: IdSchema,
+  sku: z.string().min(1).max(100),
+  name: z.string().min(1).max(200),
+  priceMinor: AmountMinorSchema,
+  active: z.boolean(),
+  availableStock: z.number().int().nonnegative(),
+  updatedAt: timestamp,
+});
+
+export const CatalogSchema = z.looseObject({
+  products: z.array(ProductSchema),
+});
+
 export const OrderStateSchema = z.looseObject({
   order: z.looseObject({
     id: IdSchema,

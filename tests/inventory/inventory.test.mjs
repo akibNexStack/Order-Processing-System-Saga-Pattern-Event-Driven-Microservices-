@@ -43,6 +43,19 @@ test('Inventory Service against real PostgreSQL', async t => {
     const stock = async id => (await pool.query('SELECT available_stock FROM products WHERE id=$1', [id])).rows[0].available_stock;
     const status = async c => (await (await app.request(`/inventory/reservations/${c.orderId}`)).json());
 
+    await t.test('serves the live catalog and rejects invalid product paths', async () => {
+      const id = await product(7);
+      const list = await app.request('/products');
+      assert.equal(list.status, 200);
+      const catalog = await list.json();
+      assert.ok(catalog.products.some(entry => entry.id === id && entry.availableStock === 7 && entry.active === true && entry.priceMinor === 1));
+      const detail = await app.request(`/products/${id}`);
+      assert.equal(detail.status, 200);
+      assert.equal((await detail.json()).product.id, id);
+      assert.equal((await app.request('/products/not-a-uuid')).status, 400);
+      assert.equal((await app.request(`/products/${randomUUID()}`)).status, 404);
+    });
+
     await t.test('validates input and finalization contracts before writes', async () => {
       const id = await product(10); const c = reserve([{ productId: id, quantity: 2 }]);
       for (const payload of [{ items: [] }, { items: [{ productId: id, quantity: 0 }] }, { items: [{ productId: id, quantity: 1.1 }] }, { items: [...c.payload.items, ...c.payload.items] }]) {

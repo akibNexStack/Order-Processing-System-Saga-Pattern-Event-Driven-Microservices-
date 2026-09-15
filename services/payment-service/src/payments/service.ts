@@ -75,7 +75,8 @@ export class PaymentService {
           if (payment) {
             // Re-read because resolving a pending charge may have set CHARGED/FAILED.
             const [current] = await tx.select().from(payments).where(eq(payments.id, payment.id));
-            if (current.providerTransactionId) await tx.update(payments).set({ status: 'REFUNDED', refundedAt: new Date(), updatedAt: new Date() }).where(eq(payments.id, payment.id));
+            if (result.data.status === 'REFUNDED' && current.providerTransactionId)
+              await tx.update(payments).set({ status: 'REFUNDED', refundedAt: new Date(), updatedAt: new Date() }).where(eq(payments.id, payment.id));
           }
         }
         await tx.update(commandReceipts).set({ status: 'COMPLETED', result, updatedAt: new Date() }).where(eq(commandReceipts.idempotencyKey, command.idempotencyKey));

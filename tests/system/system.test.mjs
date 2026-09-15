@@ -56,7 +56,7 @@ test('Independent service processes, crash recovery and isolated broker restart'
     containerCreated = true;
     const mapped = (await docker('port', container, '5672/tcp')).stdout.trim();
     brokerUrl = `amqp://saga:saga@${mapped}`;
-    for (const [name, key] of [['payment-service', 'payment'], ['inventory-service', 'inventory'], ['shipping-service', 'shipping'], ['order-orchestrator', 'orders']]) {
+    for (const [name, key] of [['auth-service', 'auth'], ['payment-service', 'payment'], ['inventory-service', 'inventory'], ['shipping-service', 'shipping'], ['order-orchestrator', 'orders']]) {
       const envKey = key === 'orders' ? 'ORDER' : key.toUpperCase();
       const url = new URL(process.env[`TEST_${envKey}_DATABASE_URL`] ?? parse(readFileSync(new URL(`../../services/${name}/.env`, import.meta.url))).DATABASE_URL);
       const fixture = { admin: new pg.Pool({ connectionString: url.href, connectionTimeoutMillis: 5000 }), name: `saga_system_${randomUUID().replaceAll('-', '')}`, created: false }; fixtures.push(fixture);
@@ -86,7 +86,7 @@ test('Independent service processes, crash recovery and isolated broker restart'
       }, r => r.status === 200, 60000);
       return info;
     };
-    await Promise.all(['payment', 'inventory', 'shipping', 'orders'].map(name => launch(name)));
+    await Promise.all(['auth', 'payment', 'inventory', 'shipping', 'orders'].map(name => launch(name)));
     const request = async (quantity = 2, stock = 10, productId = randomUUID()) => {
       await dbs.inventory.pool.query("INSERT INTO products(id,sku,name,available_stock) VALUES ($1,$2,'System test',$3) ON CONFLICT DO NOTHING", [productId, productId, stock]);
       return { idempotencyKey: randomUUID(), payload: { customerId: randomUUID(), items: [{ productId, quantity }], amountMinor: 12500, currency: 'BDT',

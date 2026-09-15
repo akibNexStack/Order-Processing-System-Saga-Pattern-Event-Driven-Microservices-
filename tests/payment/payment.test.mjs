@@ -14,7 +14,9 @@ import { PaymentService } from '../../services/payment-service/dist/payments/ser
 import { LocalPaymentProvider } from '../../services/payment-service/dist/providers/local-provider.js';
 import { ResultSchema } from '../../shared/dist/index.js';
 
-const charge = () => ({ version: 1, operation: 'CHARGE_PAYMENT', orderId: randomUUID(), sagaId: randomUUID(), idempotencyKey: randomUUID(), payload: { customerId: randomUUID(), amountMinor: 12500, currency: 'BDT' } });
+// Refund scenarios require a prepaid payment. Keep BANK_TRANSFER as the test
+// default; COD has its own PAY_ON_DELIVERY/no-op compensation case below.
+const charge = (paymentMethod = 'BANK_TRANSFER') => ({ version: 1, operation: 'CHARGE_PAYMENT', orderId: randomUUID(), sagaId: randomUUID(), idempotencyKey: randomUUID(), payload: { customerId: randomUUID(), amountMinor: 12500, currency: 'BDT', paymentMethod } });
 const refund = (c) => ({ ...c, operation: 'REFUND_PAYMENT', idempotencyKey: randomUUID(), payload: {} });
 const send = async (app, c) => {
   const response = await app.request(`/payments/${c.operation === 'CHARGE_PAYMENT' ? 'charge' : 'refund'}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(c) });
@@ -67,6 +69,13 @@ test('Payment Service HTTP handlers with real PostgreSQL and durable provider', 
       assert.deepEqual(await send(app, c), first);
       assert.equal((await payment(c)).status, 'REFUNDED');
       assert.equal((await send(app, { ...c, idempotencyKey: randomUUID() })).body.error.code, 'ALREADY_COMPENSATED');
+    });
+    await t.test('COD is pay-on-delivery and compensation is a no-op', async () => {
+      const c = charge('COD');
+      assert.equal((await send(app, c)).body.data.status, 'CHARGED');
+      assert.equal((await payment(c)).status, 'PAY_ON_DELIVERY');
+      assert.equal((await send(app, refund(c))).body.data.status, 'NOOP');
+      assert.equal((await payment(c)).status, 'PAY_ON_DELIVERY');
     });
     await t.test('concurrent duplicate charges and refunds produce one provider effect each', async () => {
       const c = charge();

@@ -16,7 +16,8 @@ export async function checkBrowser({ services, dbs, children, freePort, poll, fi
       stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
       env: { ...process.env, VERCEL: '', BACKEND_API_TOKEN: '',
         ORDERS_SERVICE_URL: services.orders.base, PAYMENT_SERVICE_URL: services.payment.base,
-        INVENTORY_SERVICE_URL: services.inventory.base, SHIPPING_SERVICE_URL: services.shipping.base },
+        INVENTORY_SERVICE_URL: services.inventory.base, SHIPPING_SERVICE_URL: services.shipping.base,
+        AUTH_SERVICE_URL: services.auth.base },
     });
   info.exited = new Promise(resolve => info.child.once('exit', resolve));
   for (const stream of [info.child.stdout, info.child.stderr])
@@ -31,6 +32,17 @@ export async function checkBrowser({ services, dbs, children, freePort, poll, fi
     browser = await chromium.launch();
     const page = await browser.newPage();
     page.setDefaultTimeout(15000);
+    const customerEmail = `browser-${Date.now()}@example.test`;
+    const customerPassword = 'browser test password';
+    await page.goto(base + '/register');
+    await page.getByRole('textbox', { name: 'Email address', exact: true }).fill(customerEmail);
+    await page.getByRole('textbox', { name: 'Password', exact: true }).fill(customerPassword);
+    await page.getByRole('button', { name: 'Create account', exact: true }).click();
+    await page.waitForURL(base + '/');
+    // The isolated test uses log-only delivery; verify the fixture user directly
+    // so checkout exercises the real verified-session authorization path.
+    await dbs.auth.pool.query('UPDATE users SET email_verified_at=now() WHERE email=$1', [customerEmail]);
+    await page.reload();
     const fill = async (product = 'Demo Keyboard') => {
       await page.goto(base + '/orders/new');
       for (const [name, value] of Object.entries({
@@ -87,6 +99,9 @@ export async function checkBrowser({ services, dbs, children, freePort, poll, fi
       assert.equal(response.status(), 200);
       await expect(page.getByRole('main')).toBeVisible();
     }
+    await page.request.delete(base + '/api/auth/session');
+    const privateOrder = await page.request.get(base + '/api/orders/' + id);
+    assert.equal(privateOrder.status(), 401);
   } finally {
     await browser?.close();
     await stop(info);
